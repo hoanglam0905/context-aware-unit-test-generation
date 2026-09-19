@@ -9,4 +9,5 @@ coverage/
 .stryker-tmp/
 reports/
 out/
-experiments/results/
+experiments/results/raw/
+.dockerignore

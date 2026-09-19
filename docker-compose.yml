@@ -1,0 +1,33 @@
+services:
+  # Service 1: Ollama Local Server (Chạy LLM Offline hoàn toàn miễn phí)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: testgen-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  # Service 2: Runner thực nghiệm (Chạy batch generation, Jest test, Coverage)
+  experiment-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: testgen-runner
+    depends_on:
+      - ollama
+    env_file:
+      - .env
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434/v1
+    volumes:
+      # Mount code, config, results và dataset để đồng bộ realtime với máy thật
+      - ./jest.config.js:/app/jest.config.js
+      - ./experiments/results:/app/experiments/results
+      - ./experiments/dataset:/app/experiments/dataset
+    command: npm test
+
+volumes:
+  ollama_data:
+    name: testgen_ollama_data
