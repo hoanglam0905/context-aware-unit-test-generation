@@ -1,0 +1,11 @@
+{
+  "runId": "s01_discount_calculator__Gemini-1.5-Flash__few-shot",
+  "durationMs": 27412,
+  "usage": {
+    "promptTokens": 935,
+    "completionTokens": 1441,
+    "totalTokens": 3414
+  },
+  "scenariosCount": 0,
+  "generatedAt": "2026-09-19T09:22:18.570Z"
+}
