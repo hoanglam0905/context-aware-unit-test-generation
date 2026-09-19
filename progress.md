@@ -40,6 +40,7 @@
 - [x] **Batch Runner cơ bản:** Script `experiments/batch_runner.ts` tự động quét dataset và chạy ma trận.
 - [x] **Chạy thử nghiệm ban đầu:** Sinh thành công test case cho `S01` và `S06` bằng Gemini API.
 - [x] **Docker hóa môi trường (Reproducibility):** Tạo `Dockerfile`, `docker-compose.yml` (tích hợp Ollama + Experiment Runner) và `DOCKER_GUIDE.md`.
+- [x] **CI/CD Pipeline (GitHub Actions):** Tự động Type check, chạy Unit test, xuất báo cáo Coverage artifact và verify Docker build tại `.github/workflows/ci.yml`.
 - [x] **Đẩy lên Git:** Đã commit và push nhánh `feature/A` lên GitHub.
 
 ---
