@@ -1,0 +1,11 @@
+{
+  "runId": "s06_auth_service__Gemini-1.5-Flash__few-shot",
+  "durationMs": 6806,
+  "usage": {
+    "promptTokens": 1273,
+    "completionTokens": 1654,
+    "totalTokens": 3804
+  },
+  "scenariosCount": 0,
+  "generatedAt": "2026-09-19T09:18:35.781Z"
+}
