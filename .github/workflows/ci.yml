@@ -52,13 +52,5 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: actions/setup-buildx-action@v3
-
       - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: false
-          tags: context-aware-testgen:ci-test
+        run: docker build -t context-aware-testgen:ci-test -f Dockerfile .

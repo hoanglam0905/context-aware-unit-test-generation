@@ -9,4 +9,4 @@ coverage/
 .stryker-tmp/
 reports/
 out/
-experiments/results/raw/
+experiments/results/
