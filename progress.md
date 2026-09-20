@@ -47,10 +47,11 @@
 
 ### Giai đoạn 2: Tối ưu Thử nghiệm & Mở rộng Dataset (ĐANG TIẾN HÀNH 🔄)
 
-#### Commit 2: Khắc phục Rate Limit & Quản lý hàng đợi Request
-- [ ] Bổ sung cơ chế `requestThrottling` (giãn cách thời gian 15-20s giữa các lần gọi) trong `batch_runner.ts` để không bị vượt hạn mức 5 RPM của Gemini Free Tier.
-- [ ] Thêm chế độ `MockGateway` cho phép kiểm thử toàn bộ luồng mà không tốn quota API.
-- [ ] Hỗ trợ tiếp tục chạy từ vị trí bị dừng (`resumeFromCheckpoint`) nếu gặp sự cố ngắt kết nối.
+#### Commit 2: Khắc phục Rate Limit & Quản lý hàng đợi Request (ĐÃ HOÀN THÀNH ✅)
+- [x] Bổ sung cơ chế `requestThrottling` (giãn cách thời gian 15-20s giữa các lần gọi) trong `batch_runner.ts` để không bị vượt hạn mức 5 RPM của Gemini Free Tier.
+- [x] Thêm chế độ `MockGateway` cho phép kiểm thử toàn bộ luồng mà không tốn quota API.
+- [x] Hỗ trợ tiếp tục chạy từ vị trí bị dừng (`resumeFromCheckpoint` / `skipIfExists`) nếu gặp sự cố ngắt kết nối.
+
 
 #### Commit 3: Mở rộng Benchmark Dataset lên đủ 15 Services
 - [ ] **Tier Simple (bổ sung 4 services):**
