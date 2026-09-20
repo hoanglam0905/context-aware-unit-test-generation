@@ -8,6 +8,7 @@ import {
   ILLMGateway,
   GeminiGateway,
   OpenAICompatibleGateway,
+  MockGateway,
 } from '../packages/core/src/llm';
 
 interface BenchmarkConfig {
@@ -18,18 +19,27 @@ interface BenchmarkConfig {
   strategies: Array<'zero-shot' | 'few-shot' | 'cot' | 'hybrid'>;
   datasetDir: string;
   outputDir: string;
+  throttlingDelayMs?: number; // Độ trễ giữa các request tránh chạm Rate Limit 429
+  skipIfExists?: boolean;     // Tiếp tục chạy từ checkpoint nếu file đã sinh thành công
 }
 
 /**
  * Script tự động quét toàn bộ benchmark dataset và thực hiện sinh test case
  */
 export class BatchExperimentRunner {
-  constructor(private readonly config: BenchmarkConfig) {}
+  private readonly delayMs: number;
+  private readonly skipIfExists: boolean;
+
+  constructor(private readonly config: BenchmarkConfig) {
+    this.delayMs = config.throttlingDelayMs ?? 15000; // Mặc định nghỉ 15s giữa các lần gọi
+    this.skipIfExists = config.skipIfExists ?? true;  // Mặc định bỏ qua các run đã sinh thành công
+  }
 
   public async runAll(): Promise<void> {
     console.log('====================================================');
     console.log('🚀 BẮT ĐẦU CHẠY MA TRẬN THỰC NGHIỆM NCKH (THÀNH VIÊN A)');
     console.log(`Số model: ${this.config.models.length} | Chiến lược prompt: ${this.config.strategies.length}`);
+    console.log(`Throttling: ${this.delayMs}ms | Checkpoint Resume: ${this.skipIfExists ? 'BẬT' : 'TẮT'}`);
     console.log('====================================================\n');
 
     // 1. Quét các sample services
@@ -38,6 +48,7 @@ export class BatchExperimentRunner {
     services.forEach(s => console.log(` - [${s.tier}] ${s.serviceId}`));
 
     const resultsSummary: any[] = [];
+    let executedCount = 0;
 
     // 2. Chạy ma trận: Model x Strategy x Service
     for (const service of services) {
@@ -50,7 +61,47 @@ export class BatchExperimentRunner {
       for (const modelConfig of this.config.models) {
         for (const strategyName of this.config.strategies) {
           const runId = `${service.serviceId}__${modelConfig.name}__${strategyName}`;
+          // Windows không cho phép dấu hai chấm ':' trong tên thư mục
+          const safeModelDir = modelConfig.name.replace(/[:\/\\?*|"<>]/g, '_');
+          const targetDir = path.join(
+            this.config.outputDir,
+            service.tier,
+            service.serviceId,
+            safeModelDir,
+            strategyName
+          );
+          const testFilePath = path.join(targetDir, 'generated.test.ts');
+          const logMetaPath = path.join(targetDir, 'metadata.json');
+
+          // Checkpoint Resume: nếu đã sinh thành công và có file kết quả, bỏ qua
+          if (this.skipIfExists && fs.existsSync(testFilePath) && fs.existsSync(logMetaPath)) {
+            try {
+              const meta = JSON.parse(fs.readFileSync(logMetaPath, 'utf-8'));
+              console.log(`  ⏩ [Checkpoint] Bỏ qua ${runId} (Đã hoàn thành trước đó)`);
+              resultsSummary.push({
+                runId,
+                service: service.serviceId,
+                tier: service.tier,
+                model: modelConfig.name,
+                strategy: strategyName,
+                durationMs: meta.durationMs || 0,
+                totalTokens: meta.usage?.totalTokens || 0,
+                status: 'SUCCESS (CACHED)',
+              });
+              continue;
+            } catch (e) {
+              // Nếu file meta hỏng thì chạy lại bình thường
+            }
+          }
+
+          // Giãn cách thời gian nếu không phải request đầu tiên
+          if (executedCount > 0 && this.delayMs > 0) {
+            console.log(`  ⏳ [Throttling] Tạm nghỉ ${this.delayMs / 1000}s để bảo đảm hạn mức API quota...`);
+            await new Promise(resolve => setTimeout(resolve, this.delayMs));
+          }
+
           console.log(`  ➔ Chạy: Model [${modelConfig.name}] | Prompt [${strategyName}]...`);
+          executedCount++;
 
           try {
             const strategy = PromptStrategyFactory.getStrategy(strategyName);
@@ -66,19 +117,9 @@ export class BatchExperimentRunner {
             );
 
             // Ghi file test sinh ra
-            const targetDir = path.join(
-              this.config.outputDir,
-              service.tier,
-              service.serviceId,
-              modelConfig.name,
-              strategyName
-            );
             fs.mkdirSync(targetDir, { recursive: true });
-
-            const testFilePath = path.join(targetDir, 'generated.test.ts');
             fs.writeFileSync(testFilePath, result.testCode, 'utf-8');
 
-            const logMetaPath = path.join(targetDir, 'metadata.json');
             fs.writeFileSync(
               logMetaPath,
               JSON.stringify(
@@ -128,7 +169,7 @@ export class BatchExperimentRunner {
     const csvRows = resultsSummary
       .map(
         r =>
-          `"${r.runId}","${r.service}","${r.tier}","${r.model}","${r.strategy}","${r.status}",${r.durationMs || 0},${r.totalTokens || 0},"${r.error || ''}"`
+          `"${r.runId}","${r.service}","${r.tier}","${r.model}","${r.strategy}","${r.status}",${r.durationMs || 0},${r.totalTokens || 0},"${(r.error || '').replace(/"/g, '""')}"`
       )
       .join('\n');
 
@@ -170,16 +211,29 @@ export class BatchExperimentRunner {
 async function main() {
   const models: Array<{ name: string; gateway: ILLMGateway }> = [];
 
-  // 1. Google Gemini
-  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here') {
+  // 1. Ollama Local (Chạy qua Docker container)
+  if (process.env.USE_OLLAMA === 'true' && process.env.OLLAMA_BASE_URL) {
+    models.push({
+      name: `Ollama-${process.env.OLLAMA_MODEL || 'qwen2.5-coder:1.5b'}`,
+      gateway: new OpenAICompatibleGateway(
+        'Ollama',
+        process.env.OLLAMA_MODEL || 'qwen2.5-coder:1.5b',
+        'ollama',
+        process.env.OLLAMA_BASE_URL
+      ),
+    });
+  }
+
+  // 2. Google Gemini (Chỉ kích hoạt nếu không chỉ định USE_OLLAMA)
+  if (process.env.USE_OLLAMA !== 'true' && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here') {
     models.push({
       name: 'Gemini-1.5-Flash',
       gateway: new GeminiGateway(process.env.GEMINI_MODEL || 'gemini-1.5-flash', process.env.GEMINI_API_KEY),
     });
   }
 
-  // 2. DeepSeek API
-  if (process.env.DEEPSEEK_API_KEY && process.env.DEEPSEEK_API_KEY !== 'your_deepseek_api_key_here') {
+  // 3. DeepSeek API
+  if (process.env.USE_OLLAMA !== 'true' && process.env.DEEPSEEK_API_KEY && process.env.DEEPSEEK_API_KEY !== 'your_deepseek_api_key_here') {
     models.push({
       name: 'DeepSeek-Coder',
       gateway: new OpenAICompatibleGateway(
@@ -191,21 +245,8 @@ async function main() {
     });
   }
 
-  // 3. Ollama Local
-  if (process.env.OLLAMA_BASE_URL && process.env.USE_OLLAMA === 'true') {
-    models.push({
-      name: 'Ollama-Local',
-      gateway: new OpenAICompatibleGateway(
-        'Ollama',
-        process.env.OLLAMA_MODEL || 'deepseek-coder:6.7b',
-        'ollama',
-        process.env.OLLAMA_BASE_URL
-      ),
-    });
-  }
-
   // 4. OpenAI
-  if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here') {
+  if (process.env.USE_OLLAMA !== 'true' && process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here') {
     models.push({
       name: 'OpenAI-GPT-4o-mini',
       gateway: new OpenAICompatibleGateway(
@@ -216,21 +257,34 @@ async function main() {
     });
   }
 
+  // 5. Mock Gateway (Kiểm thử offline pipeline hoàn toàn không tốn token)
+  if (process.env.USE_MOCK_LLM === 'true' || models.length === 0 && !process.env.GEMINI_API_KEY) {
+    models.push({
+      name: 'Mock-LLM-Simulator',
+      gateway: new MockGateway(150),
+    });
+  }
+
   if (models.length === 0) {
     console.warn('\n⚠️  CHƯA CÓ API KEY HỢP LỆ TRONG FILE .env!');
     console.log('👉 Hướng dẫn kích hoạt:');
     console.log('   1. Mở file .env');
     console.log('   2. Điền GEMINI_API_KEY (lấy miễn phí tại https://aistudio.google.com/app/apikey)');
     console.log('   3. Hoặc điền DEEPSEEK_API_KEY / OPENAI_API_KEY');
-    console.log('   4. Sau đó chạy lại: npm run experiment:batch\n');
+    console.log('   4. Hoặc đặt USE_MOCK_LLM=true để chạy thử nghiệm offline');
+    console.log('   5. Sau đó chạy lại: npm run experiment:batch\n');
     return;
   }
+
+  const delay = parseInt(process.env.THROTTLING_DELAY_MS || '15000', 10);
 
   const runner = new BatchExperimentRunner({
     models,
     strategies: ['zero-shot', 'few-shot', 'cot', 'hybrid'],
     datasetDir: path.join(__dirname, 'dataset'),
     outputDir: path.join(__dirname, 'results'),
+    throttlingDelayMs: delay,
+    skipIfExists: process.env.SKIP_EXISTING_RUNS !== 'false',
   });
 
   await runner.runAll();

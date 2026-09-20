@@ -47,10 +47,11 @@
 
 ### Giai đoạn 2: Tối ưu Thử nghiệm & Mở rộng Dataset (ĐANG TIẾN HÀNH 🔄)
 
-#### Commit 2: Khắc phục Rate Limit & Quản lý hàng đợi Request
-- [ ] Bổ sung cơ chế `requestThrottling` (giãn cách thời gian 15-20s giữa các lần gọi) trong `batch_runner.ts` để không bị vượt hạn mức 5 RPM của Gemini Free Tier.
-- [ ] Thêm chế độ `MockGateway` cho phép kiểm thử toàn bộ luồng mà không tốn quota API.
-- [ ] Hỗ trợ tiếp tục chạy từ vị trí bị dừng (`resumeFromCheckpoint`) nếu gặp sự cố ngắt kết nối.
+#### Commit 2: Khắc phục Rate Limit & Quản lý hàng đợi Request (ĐÃ HOÀN THÀNH ✅)
+- [x] Bổ sung cơ chế `requestThrottling` (giãn cách thời gian 15-20s giữa các lần gọi) trong `batch_runner.ts` để không bị vượt hạn mức 5 RPM của Gemini Free Tier.
+- [x] Thêm chế độ `MockGateway` cho phép kiểm thử toàn bộ luồng mà không tốn quota API.
+- [x] Hỗ trợ tiếp tục chạy từ vị trí bị dừng (`resumeFromCheckpoint` / `skipIfExists`) nếu gặp sự cố ngắt kết nối.
+
 
 #### Commit 3: Mở rộng Benchmark Dataset lên đủ 15 Services
 - [ ] **Tier Simple (bổ sung 4 services):**
@@ -94,7 +95,15 @@
 | 2026-09-19 | Gemini-1.5-Flash | few-shot | S01_DiscountCalculator | **SUCCESS** | 3,414 | Sinh đầy đủ case biên âm/0/NaN. |
 | 2026-09-19 | Gemini-1.5-Flash | cot | S01_DiscountCalculator | **SUCCESS** | 5,173 | 224 dòng test code chất lượng cao. |
 | 2026-09-19 | Gemini-1.5-Flash | cot | S06_AuthService | **SUCCESS** | 6,445 | Mock 3 dependencies, test đủ lockout 5 lần. |
-| 2026-09-19 | Gemini-1.5-Flash | zero-shot / hybrid | S11_PaymentService | *Rate Limit (429)* | - | Bị bóp 5 RPM ➔ Cần cơ chế throttling ở Commit 2. |
+| 2026-09-20 | Ollama-qwen2.5-coder | zero-shot / few-shot | S01_DiscountCalculator | **SUCCESS** | 1,466 - 1,601 | Sinh đầy đủ logic tính giảm giá theo bậc. |
+| 2026-09-20 | Ollama-qwen2.5-coder | **hybrid (BA + Code)** | S01_DiscountCalculator | **SUCCESS** | 2,542 | Xuất JSON schema chuẩn kịch bản test. |
+| 2026-09-20 | Ollama-qwen2.5-coder | zero-shot / few-shot | S06_AuthService | **SUCCESS** | 2,013 - 2,064 | Mock UserRepository và TokenService. |
+| 2026-09-20 | Ollama-qwen2.5-coder | cot | S06_AuthService | **SUCCESS** | 3,109 | Suy luận lockout 5 lần và các mã lỗi bảo mật. |
+| 2026-09-20 | Ollama-qwen2.5-coder | **hybrid (BA + Code)** | S06_AuthService | **SUCCESS** | 2,926 | Bóc tách đầy đủ Acceptance Criteria Gherkin. |
+| 2026-09-20 | Ollama-qwen2.5-coder | zero-shot / few-shot | S11_PaymentService | **SUCCESS** | 2,621 - 3,189 | Xử lý Idempotency và payment gateway mock. |
+| 2026-09-20 | Ollama-qwen2.5-coder | cot | S11_PaymentService | **SUCCESS** | 3,465 | Phân tích sâu luồng voidTransaction khi timeout. |
+| 2026-09-20 | Ollama-qwen2.5-coder | **hybrid (BA + Code)** | S11_PaymentService | **SUCCESS** | 4,047 | 172 dòng JSON + Jest test bao quát cả 5 SC. |
+
 
 ---
 
