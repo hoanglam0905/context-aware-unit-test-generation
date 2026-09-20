@@ -61,11 +61,13 @@ export class BatchExperimentRunner {
       for (const modelConfig of this.config.models) {
         for (const strategyName of this.config.strategies) {
           const runId = `${service.serviceId}__${modelConfig.name}__${strategyName}`;
+          // Windows không cho phép dấu hai chấm ':' trong tên thư mục
+          const safeModelDir = modelConfig.name.replace(/[:\/\\?*|"<>]/g, '_');
           const targetDir = path.join(
             this.config.outputDir,
             service.tier,
             service.serviceId,
-            modelConfig.name,
+            safeModelDir,
             strategyName
           );
           const testFilePath = path.join(targetDir, 'generated.test.ts');
@@ -209,16 +211,29 @@ export class BatchExperimentRunner {
 async function main() {
   const models: Array<{ name: string; gateway: ILLMGateway }> = [];
 
-  // 1. Google Gemini
-  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here') {
+  // 1. Ollama Local (Chạy qua Docker container)
+  if (process.env.USE_OLLAMA === 'true' && process.env.OLLAMA_BASE_URL) {
+    models.push({
+      name: `Ollama-${process.env.OLLAMA_MODEL || 'qwen2.5-coder:1.5b'}`,
+      gateway: new OpenAICompatibleGateway(
+        'Ollama',
+        process.env.OLLAMA_MODEL || 'qwen2.5-coder:1.5b',
+        'ollama',
+        process.env.OLLAMA_BASE_URL
+      ),
+    });
+  }
+
+  // 2. Google Gemini (Chỉ kích hoạt nếu không chỉ định USE_OLLAMA)
+  if (process.env.USE_OLLAMA !== 'true' && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here') {
     models.push({
       name: 'Gemini-1.5-Flash',
       gateway: new GeminiGateway(process.env.GEMINI_MODEL || 'gemini-1.5-flash', process.env.GEMINI_API_KEY),
     });
   }
 
-  // 2. DeepSeek API
-  if (process.env.DEEPSEEK_API_KEY && process.env.DEEPSEEK_API_KEY !== 'your_deepseek_api_key_here') {
+  // 3. DeepSeek API
+  if (process.env.USE_OLLAMA !== 'true' && process.env.DEEPSEEK_API_KEY && process.env.DEEPSEEK_API_KEY !== 'your_deepseek_api_key_here') {
     models.push({
       name: 'DeepSeek-Coder',
       gateway: new OpenAICompatibleGateway(
@@ -230,21 +245,8 @@ async function main() {
     });
   }
 
-  // 3. Ollama Local
-  if (process.env.OLLAMA_BASE_URL && process.env.USE_OLLAMA === 'true') {
-    models.push({
-      name: 'Ollama-Local',
-      gateway: new OpenAICompatibleGateway(
-        'Ollama',
-        process.env.OLLAMA_MODEL || 'deepseek-coder:6.7b',
-        'ollama',
-        process.env.OLLAMA_BASE_URL
-      ),
-    });
-  }
-
   // 4. OpenAI
-  if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here') {
+  if (process.env.USE_OLLAMA !== 'true' && process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here') {
     models.push({
       name: 'OpenAI-GPT-4o-mini',
       gateway: new OpenAICompatibleGateway(

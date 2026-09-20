@@ -64,46 +64,68 @@ export class OpenAICompatibleGateway implements ILLMGateway {
 
   public async generate(systemPrompt: string, userPrompt: string): Promise<LLMResponse> {
     const startTime = Date.now();
+    let attempts = 0;
+    const maxAttempts = 3;
 
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: this.modelName,
-        temperature: this.temperature,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-      }),
-    });
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        // Cấu hình timeout 10 phút để CPU máy cá nhân có đủ thời gian sinh code
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 600000);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`LLM API Error [${this.providerName} - ${response.status}]: ${errorText}`);
+        const response = await fetch(`${this.baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: this.modelName,
+            temperature: this.temperature,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`LLM API Error [${this.providerName} - ${response.status}]: ${errorText}`);
+        }
+
+        const data: any = await response.json();
+        const durationMs = Date.now() - startTime;
+        const rawText = data.choices?.[0]?.message?.content || '';
+
+        const parsedJson = parseHybridJson(rawText);
+
+        return {
+          rawText,
+          testCode: parsedJson.testCode || extractCodeBlock(rawText),
+          testScenarios: parsedJson.testScenarios,
+          reasoningSteps: parsedJson.reasoningSteps,
+          usage: data.usage ? {
+            promptTokens: data.usage.prompt_tokens,
+            completionTokens: data.usage.completion_tokens,
+            totalTokens: data.usage.total_tokens,
+          } : undefined,
+          durationMs,
+        };
+      } catch (err: any) {
+        if (attempts >= maxAttempts) {
+          throw err;
+        }
+        console.log(`    ⚠️ [${this.providerName}] Kết nối bị gián đoạn (${err.message}). Đang thử lại lần ${attempts + 1}/${maxAttempts}...`);
+        await new Promise(r => setTimeout(r, 2000));
+      }
     }
 
-    const data: any = await response.json();
-    const durationMs = Date.now() - startTime;
-    const rawText = data.choices?.[0]?.message?.content || '';
-
-    const parsedJson = parseHybridJson(rawText);
-
-    return {
-      rawText,
-      testCode: parsedJson.testCode || extractCodeBlock(rawText),
-      testScenarios: parsedJson.testScenarios,
-      reasoningSteps: parsedJson.reasoningSteps,
-      usage: data.usage ? {
-        promptTokens: data.usage.prompt_tokens,
-        completionTokens: data.usage.completion_tokens,
-        totalTokens: data.usage.total_tokens,
-      } : undefined,
-      durationMs,
-    };
+    throw new Error(`Failed to generate response after ${maxAttempts} attempts.`);
   }
 }
 

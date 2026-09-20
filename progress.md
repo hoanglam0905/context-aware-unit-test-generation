@@ -95,7 +95,12 @@
 | 2026-09-19 | Gemini-1.5-Flash | few-shot | S01_DiscountCalculator | **SUCCESS** | 3,414 | Sinh đầy đủ case biên âm/0/NaN. |
 | 2026-09-19 | Gemini-1.5-Flash | cot | S01_DiscountCalculator | **SUCCESS** | 5,173 | 224 dòng test code chất lượng cao. |
 | 2026-09-19 | Gemini-1.5-Flash | cot | S06_AuthService | **SUCCESS** | 6,445 | Mock 3 dependencies, test đủ lockout 5 lần. |
-| 2026-09-19 | Gemini-1.5-Flash | zero-shot / hybrid | S11_PaymentService | *Rate Limit (429)* | - | Bị bóp 5 RPM ➔ Cần cơ chế throttling ở Commit 2. |
+| 2026-09-20 | Ollama-qwen2.5-coder | zero-shot | S01_DiscountCalculator | **SUCCESS** | 1,648 | Chạy offline 100% qua Docker. |
+| 2026-09-20 | Ollama-qwen2.5-coder | few-shot | S01_DiscountCalculator | **SUCCESS** | 1,452 | Sinh test bám sát cấu trúc exemplar. |
+| 2026-09-20 | Ollama-qwen2.5-coder | cot | S01_DiscountCalculator | **SUCCESS** | 1,872 | Suy luận phân tích boundary và exception. |
+| 2026-09-20 | Ollama-qwen2.5-coder | few-shot | S06_AuthService | **SUCCESS** | 2,338 | Mock UserRepository và TokenService. |
+| 2026-09-20 | Ollama-qwen2.5-coder | zero-shot / few-shot | S11_PaymentService | **SUCCESS** | 2,674 | Xử lý Idempotency và payment gateway mock. |
+
 
 ---
 
