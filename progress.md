@@ -95,11 +95,14 @@
 | 2026-09-19 | Gemini-1.5-Flash | few-shot | S01_DiscountCalculator | **SUCCESS** | 3,414 | Sinh đầy đủ case biên âm/0/NaN. |
 | 2026-09-19 | Gemini-1.5-Flash | cot | S01_DiscountCalculator | **SUCCESS** | 5,173 | 224 dòng test code chất lượng cao. |
 | 2026-09-19 | Gemini-1.5-Flash | cot | S06_AuthService | **SUCCESS** | 6,445 | Mock 3 dependencies, test đủ lockout 5 lần. |
-| 2026-09-20 | Ollama-qwen2.5-coder | zero-shot | S01_DiscountCalculator | **SUCCESS** | 1,648 | Chạy offline 100% qua Docker. |
-| 2026-09-20 | Ollama-qwen2.5-coder | few-shot | S01_DiscountCalculator | **SUCCESS** | 1,452 | Sinh test bám sát cấu trúc exemplar. |
-| 2026-09-20 | Ollama-qwen2.5-coder | cot | S01_DiscountCalculator | **SUCCESS** | 1,872 | Suy luận phân tích boundary và exception. |
-| 2026-09-20 | Ollama-qwen2.5-coder | few-shot | S06_AuthService | **SUCCESS** | 2,338 | Mock UserRepository và TokenService. |
-| 2026-09-20 | Ollama-qwen2.5-coder | zero-shot / few-shot | S11_PaymentService | **SUCCESS** | 2,674 | Xử lý Idempotency và payment gateway mock. |
+| 2026-09-20 | Ollama-qwen2.5-coder | zero-shot / few-shot | S01_DiscountCalculator | **SUCCESS** | 1,466 - 1,601 | Sinh đầy đủ logic tính giảm giá theo bậc. |
+| 2026-09-20 | Ollama-qwen2.5-coder | **hybrid (BA + Code)** | S01_DiscountCalculator | **SUCCESS** | 2,542 | Xuất JSON schema chuẩn kịch bản test. |
+| 2026-09-20 | Ollama-qwen2.5-coder | zero-shot / few-shot | S06_AuthService | **SUCCESS** | 2,013 - 2,064 | Mock UserRepository và TokenService. |
+| 2026-09-20 | Ollama-qwen2.5-coder | cot | S06_AuthService | **SUCCESS** | 3,109 | Suy luận lockout 5 lần và các mã lỗi bảo mật. |
+| 2026-09-20 | Ollama-qwen2.5-coder | **hybrid (BA + Code)** | S06_AuthService | **SUCCESS** | 2,926 | Bóc tách đầy đủ Acceptance Criteria Gherkin. |
+| 2026-09-20 | Ollama-qwen2.5-coder | zero-shot / few-shot | S11_PaymentService | **SUCCESS** | 2,621 - 3,189 | Xử lý Idempotency và payment gateway mock. |
+| 2026-09-20 | Ollama-qwen2.5-coder | cot | S11_PaymentService | **SUCCESS** | 3,465 | Phân tích sâu luồng voidTransaction khi timeout. |
+| 2026-09-20 | Ollama-qwen2.5-coder | **hybrid (BA + Code)** | S11_PaymentService | **SUCCESS** | 4,047 | 172 dòng JSON + Jest test bao quát cả 5 SC. |
 
 
 ---
