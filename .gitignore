@@ -10,3 +10,8 @@ coverage/
 reports/
 out/
 experiments/results/
+.eval_sandbox/
+experiments/.eval_sandbox/
+experiments/eval_sandbox/
+experiments/eval_test_sandbox/
+experiments/eval_test_fixtures/
