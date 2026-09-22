@@ -3,18 +3,18 @@
 > **Nhánh phát triển:** `feature/A`  
 > **Người thực hiện:** Thành viên A (AI / Prompt Engineering & NCKH)  
 > **Đề tài:** Tự động sinh Unit Test theo ngữ cảnh tài liệu nghiệp vụ (BA Requirement) sử dụng Large Language Model (LLM)  
-> **Cập nhật lần cuối:** 2026-09-19  
+> **Cập nhật lần cuối:** 2026-09-22  
 
 ---
 
 ## 📊 1. Tổng Quan Tiến Độ Nhánh `feature/A`
 
 ```
-[████████████████░░░░░░░░░░░░░░░░] 50% Hoàn thành giai đoạn NCKH & Pipeline AI
+[████████████████████████░░░░░░░░] 75% Hoàn thành giai đoạn NCKH & Pipeline AI
 ```
 
-- **Commit đã thực hiện:** 1 (`feat(member-a): implement benchmark dataset, prompt strategies, and batch runner`)
-- **Trạng thái:** Đã thiết lập hoàn chỉnh khung sườn Dataset, 4 Prompt Strategies, Cổng kết nối LLM Gateway và chạy thử nghiệm batch đầu tiên thành công với Gemini API.
+- **Commit đã thực hiện:** 3 (`feat(dataset): expand benchmark dataset to full 15 services with requirements, code, and ground truth tests`)
+- **Trạng thái:** Đã hoàn thành trọn vẹn 15 services (5 Simple, 5 Medium, 5 Complex) với đủ 3 file chuẩn (requirement.md, service.ts, ground_truth.test.ts) đạt 100% test pass (133/133 tests).
 
 ---
 
@@ -45,7 +45,7 @@
 
 ---
 
-### Giai đoạn 2: Tối ưu Thử nghiệm & Mở rộng Dataset (ĐANG TIẾN HÀNH 🔄)
+### Giai đoạn 2: Tối ưu Thử nghiệm & Mở rộng Dataset (ĐÃ HOÀN THÀNH ✅)
 
 #### Commit 2: Khắc phục Rate Limit & Quản lý hàng đợi Request (ĐÃ HOÀN THÀNH ✅)
 - [x] Bổ sung cơ chế `requestThrottling` (giãn cách thời gian 15-20s giữa các lần gọi) trong `batch_runner.ts` để không bị vượt hạn mức 5 RPM của Gemini Free Tier.
@@ -53,22 +53,25 @@
 - [x] Hỗ trợ tiếp tục chạy từ vị trí bị dừng (`resumeFromCheckpoint` / `skipIfExists`) nếu gặp sự cố ngắt kết nối.
 
 
-#### Commit 3: Mở rộng Benchmark Dataset lên đủ 15 Services
-- [ ] **Tier Simple (bổ sung 4 services):**
-  - [ ] `S02_PasswordValidator`
-  - [ ] `S03_ShippingFeeCalculator`
-  - [ ] `S04_TaxCalculator`
-  - [ ] `S05_SlugGenerator`
-- [ ] **Tier Medium (bổ sung 4 services):**
-  - [ ] `S07_CartService`
-  - [ ] `S08_CouponService`
-  - [ ] `S09_NotificationService`
-  - [ ] `S10_UserProfileService`
-- [ ] **Tier Complex (bổ sung 4 services):**
-  - [ ] `S12_OrderFulfillmentService`
-  - [ ] `S13_BookingConcurrencyService`
-  - [ ] `S14_SubscriptionRenewalService`
-  - [ ] `S15_LoyaltyPointService`
+#### Commit 3: Mở rộng Benchmark Dataset lên đủ 15 Services (ĐÃ HOÀN THÀNH ✅)
+- [x] **Tier Simple (5/5 services):**
+  - [x] `S01_DiscountCalculator`
+  - [x] `S02_PasswordValidator`
+  - [x] `S03_ShippingFeeCalculator`
+  - [x] `S04_TaxCalculator`
+  - [x] `S05_SlugGenerator`
+- [x] **Tier Medium (5/5 services):**
+  - [x] `S06_AuthService`
+  - [x] `S07_CartService`
+  - [x] `S08_CouponService`
+  - [x] `S09_NotificationService`
+  - [x] `S10_UserProfileService`
+- [x] **Tier Complex (5/5 services):**
+  - [x] `S11_PaymentService`
+  - [x] `S12_OrderFulfillmentService`
+  - [x] `S13_BookingConcurrencyService`
+  - [x] `S14_SubscriptionRenewalService`
+  - [x] `S15_LoyaltyPointService`
 
 ---
 
