@@ -12,5 +12,5 @@
     "resolveJsonModule": true
   },
   "include": ["packages/**/*", "experiments/**/*"],
-  "exclude": ["node_modules", "dist", "experiments/results"]
+  "exclude": ["node_modules", "dist", "experiments/results", "experiments/eval_sandbox"]
 }

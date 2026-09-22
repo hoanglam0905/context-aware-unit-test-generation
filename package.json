@@ -9,7 +9,8 @@
   "scripts": {
     "test": "jest",
     "test:coverage": "jest --coverage",
-    "experiment:batch": "ts-node experiments/batch_runner.ts"
+    "experiment:batch": "ts-node experiments/batch_runner.ts",
+    "experiment:evaluate": "ts-node experiments/evaluate_generated_tests.ts"
   },
   "dependencies": {
     "dotenv": "^16.6.1"

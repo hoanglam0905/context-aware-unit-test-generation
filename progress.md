@@ -10,11 +10,11 @@
 ## 📊 1. Tổng Quan Tiến Độ Nhánh `feature/A`
 
 ```
-[████████████████████████░░░░░░░░] 75% Hoàn thành giai đoạn NCKH & Pipeline AI
+[████████████████████████████░░░░] 88% Hoàn thành giai đoạn NCKH & Pipeline AI
 ```
 
-- **Commit đã thực hiện:** 3 (`feat(dataset): expand benchmark dataset to full 15 services with requirements, code, and ground truth tests`)
-- **Trạng thái:** Đã hoàn thành trọn vẹn 15 services (5 Simple, 5 Medium, 5 Complex) với đủ 3 file chuẩn (requirement.md, service.ts, ground_truth.test.ts) đạt 100% test pass (133/133 tests).
+- **Commit đã thực hiện:** 4 (`feat(evaluator): implement automated test evaluator for compilability, pass rate, and coverage`)
+- **Trạng thái:** Đã hoàn thành 15 benchmark services và xây dựng hoàn chỉnh bộ Evaluator tự động đo lường Compilability Rate, First-pass Pass Rate và Code Coverage.
 
 ---
 
@@ -75,15 +75,19 @@
 
 ---
 
-### Giai đoạn 3: Đánh giá Chất lượng Test & Phân tích NCKH (KẾ HOẠCH TIẾP THEO ⏳)
+### Giai đoạn 3: Đánh giá Chất lượng Test & Phân tích NCKH (ĐANG THỰC HIỆN 🔄)
 
-#### Commit 4: Bộ đánh giá tính khả thi (Automated Test Evaluator)
-- [ ] Viết script `experiments/evaluate_generated_tests.ts`:
-  - [ ] Đo **Compilability Rate** (% file test biên dịch TypeScript thành công).
-  - [ ] Đo **First-pass Execution Rate** (% test case chạy pass ngay lần đầu bằng Jest).
-  - [ ] Đo **Line Coverage & Branch Coverage** tự động trên từng file test do LLM sinh ra.
+#### Commit 4: Bộ đánh giá tính khả thi (Automated Test Evaluator) (ĐÃ HOÀN THÀNH ✅)
+- [x] Viết module `experiments/evaluate_generated_tests.ts`:
+  - [x] Đo **Compilability Rate** (% file test biên dịch TypeScript thành công qua TS Transpiler & Jest Runner).
+  - [x] Đo **First-pass Execution Rate** (% test case chạy pass ngay lần đầu bằng Jest).
+  - [x] Đo **Line Coverage & Branch Coverage** tự động trên từng file test do LLM sinh ra trong Sandbox biệt lập.
+  - [x] Tự động trích xuất code từ output Markdown / JSON schema của các chiến lược prompt.
+  - [x] Xuất báo cáo định lượng đa chiều sang `evaluation_summary.json` và `evaluation_summary.csv`.
+- [x] Bổ sung bộ Unit Test cho Evaluator tại `packages/core/src/evaluator.test.ts` (100% pass).
+- [x] Thêm script `npm run experiment:evaluate` vào `package.json`.
 
-#### Commit 5: Báo cáo Thống kê & Trực quan hóa số liệu
+#### Commit 5: Báo cáo Thống kê & Trực quan hóa số liệu (KẾ HOẠCH TIẾP THEO ⏳)
 - [ ] Viết script `experiments/generate_report.ts`:
   - [ ] Tổng hợp ma trận số liệu so sánh giữa 4 kỹ thuật prompt (`Zero-shot` vs `Few-shot` vs `CoT` vs `Hybrid`).
   - [ ] Xuất bảng so sánh định lượng: Số lượng Token tiêu thụ, Độ trễ (Latency), Độ phủ (Coverage).
