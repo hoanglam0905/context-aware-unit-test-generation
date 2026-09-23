@@ -10,11 +10,11 @@
 ## 📊 1. Tổng Quan Tiến Độ Nhánh `feature/A`
 
 ```
-[████████████████████████████░░░░] 88% Hoàn thành giai đoạn NCKH & Pipeline AI
+[████████████████████████████████] 100% Hoàn thành giai đoạn NCKH & Pipeline AI
 ```
 
-- **Commit đã thực hiện:** 4 (`feat(evaluator): implement automated test evaluator for compilability, pass rate, and coverage`)
-- **Trạng thái:** Đã hoàn thành 15 benchmark services và xây dựng hoàn chỉnh bộ Evaluator tự động đo lường Compilability Rate, First-pass Pass Rate và Code Coverage.
+- **Commit đã thực hiện:** 5 (`feat(report): implement automated experiment report generator with statistical matrix and mermaid visualization`)
+- **Trạng thái:** Đã hoàn thành 100% các hạng mục của Thành viên A (feature/A): 15 benchmark services, Evaluator tự động đo Coverage/Pass Rate, và Báo cáo trực quan hóa số liệu ma trận.
 
 ---
 
@@ -87,11 +87,14 @@
 - [x] Bổ sung bộ Unit Test cho Evaluator tại `packages/core/src/evaluator.test.ts` (100% pass).
 - [x] Thêm script `npm run experiment:evaluate` vào `package.json`.
 
-#### Commit 5: Báo cáo Thống kê & Trực quan hóa số liệu (KẾ HOẠCH TIẾP THEO ⏳)
-- [ ] Viết script `experiments/generate_report.ts`:
-  - [ ] Tổng hợp ma trận số liệu so sánh giữa 4 kỹ thuật prompt (`Zero-shot` vs `Few-shot` vs `CoT` vs `Hybrid`).
-  - [ ] Xuất bảng so sánh định lượng: Số lượng Token tiêu thụ, Độ trễ (Latency), Độ phủ (Coverage).
-  - [ ] Sinh biểu đồ Markdown / Mermaid minh họa đóng góp của tài liệu BA.
+#### Commit 5: Báo cáo Thống kê & Trực quan hóa số liệu (ĐÃ HOÀN THÀNH ✅)
+- [x] Viết script `experiments/generate_report.ts`:
+  - [x] Tổng hợp ma trận số liệu so sánh giữa 4 kỹ thuật prompt (`Zero-shot` vs `Few-shot` vs `CoT` vs `Hybrid`).
+  - [x] Xuất bảng so sánh định lượng: Số lượng Token tiêu thụ, Độ trễ (Latency), Độ phủ (Coverage).
+  - [x] Sinh biểu đồ Markdown / Mermaid minh họa đóng góp của tài liệu BA.
+  - [x] Xuất kết quả tự động ra `experiments/results/report_summary.md` và `experiments/results/benchmark_matrix.csv`.
+- [x] Bổ sung Unit Test cho Report Generator tại `packages/core/src/report_generator.test.ts` (100% pass).
+- [x] Thêm script `npm run experiment:report` vào `package.json`.
 
 ---
 
