@@ -16,7 +16,7 @@
 
 ## 2. Mục đích đọc bài báo đối với project
 
-Project tôi đang thực hiện có tên:
+Project nhóm đang thực hiện có tên:
 
 ```text
 context-aware-unit-test-generation
@@ -38,9 +38,9 @@ Context
 Generated Unit Test
 ```
 
-Trong quá trình nghiên cứu, tôi cần hiểu nền tảng kỹ thuật của các LLM hiện đại. Attention Is All You Need là một trong những bài báo quan trọng nhất để hiểu kiến trúc Transformer, là nền tảng của phần lớn các mô hình ngôn ngữ hiện đại.
+Trong quá trình nghiên cứu, nhóm cần hiểu nền tảng kỹ thuật của các LLM hiện đại. Attention Is All You Need là một trong những bài báo quan trọng nhất để hiểu kiến trúc Transformer, là nền tảng của phần lớn các mô hình ngôn ngữ hiện đại.
 
-Tuy nhiên, mục đích của tôi **không phải là tự xây dựng lại Transformer hoặc train Transformer từ đầu**.
+Tuy nhiên, mục đích của nhóm **không phải là tự xây dựng lại Transformer hoặc train Transformer từ đầu**.
 
 Mục đích chính là:
 
@@ -266,7 +266,7 @@ d_k = d_v = 64
 
 Multi-Head Attention cho phép model học nhiều dạng relationship khác nhau giữa các thành phần của input.
 
-Tôi không giả định rằng mỗi head có một chức năng cố định như "syntax head", "semantic head" hay "dependency head", vì bài báo không đưa ra sự phân chia cứng như vậy.
+Nhóm không giả định rằng mỗi head có một chức năng cố định như "syntax head", "semantic head" hay "dependency head", vì bài báo không đưa ra sự phân chia cứng như vậy.
 
 ---
 
@@ -324,7 +324,7 @@ if (user != null) {
 }
 ```
 
-Tuy nhiên, trong project tôi không cần tự triển khai Positional Encoding vì tôi sử dụng pretrained LLM.
+Tuy nhiên, trong project nhóm không cần tự triển khai Positional Encoding vì nhóm sử dụng pretrained LLM.
 
 ---
 
@@ -357,7 +357,7 @@ Feed Forward Network
 Biến đổi representation
 ```
 
-Đây là một thành phần bên trong Transformer và không phải module mà tôi cần tự xây dựng trong project.
+Đây là một thành phần bên trong Transformer và không phải module mà nhóm cần tự xây dựng trong project.
 
 ---
 
@@ -373,7 +373,7 @@ $$
 
 Mục đích là giúp việc training mạng sâu ổn định hơn.
 
-Tương tự như Feed-Forward Network, đây là kiến thức nền tảng giúp tôi hiểu Transformer nhưng không phải thành phần cần tự triển khai trong project.
+Tương tự như Feed-Forward Network, đây là kiến thức nền tảng giúp nhóm hiểu Transformer nhưng không phải thành phần cần tự triển khai trong project.
 
 ---
 
@@ -413,7 +413,7 @@ sẽ dẫn đến:
 * Nhiều thông tin không liên quan.
 * Khó tận dụng context hiệu quả.
 
-Vì vậy, từ bài báo tôi nhận ra rằng project cần quan tâm đến **context selection**, thay vì đơn giản đưa toàn bộ repository vào model.
+Vì vậy, từ bài báo nhóm nhận ra rằng project cần quan tâm đến **context selection**, thay vì đơn giản đưa toàn bộ repository vào model.
 
 ---
 
@@ -450,7 +450,7 @@ BLEU
 WMT14
 ```
 
-không được sử dụng trực tiếp trong project của tôi vì bài toán nghiên cứu hoàn toàn khác.
+không được sử dụng trực tiếp trong project của nhóm vì bài toán nghiên cứu hoàn toàn khác.
 
 ---
 
@@ -472,7 +472,7 @@ Label smoothing = 0.1
 
 Paper báo cáo quá trình training sử dụng GPU NVIDIA P100.
 
-Tôi không sử dụng lại cấu hình training này vì project không train Transformer từ đầu.
+Nhóm không sử dụng lại cấu hình training này vì project không train Transformer từ đầu.
 
 ---
 
@@ -486,7 +486,7 @@ BLEU
 
 Transformer đạt kết quả cạnh tranh hoặc tốt hơn các phương pháp trước đó trên các benchmark machine translation được sử dụng.
 
-Ý nghĩa quan trọng đối với tôi không nằm ở việc lấy trực tiếp điểm BLEU, mà nằm ở việc bài báo chứng minh rằng:
+Ý nghĩa quan trọng đối với nhóm không nằm ở việc lấy trực tiếp điểm BLEU, mà nằm ở việc bài báo chứng minh rằng:
 
 > Một architecture dựa chủ yếu trên Attention có thể thực hiện hiệu quả bài toán sequence-to-sequence mà không cần RNN hoặc CNN.
 
@@ -496,7 +496,7 @@ Transformer đạt kết quả cạnh tranh hoặc tốt hơn các phương phá
 
 # 15. Liên hệ trực tiếp với project
 
-Project của tôi có pipeline:
+Project của nhóm có pipeline:
 
 ```text
 Requirement
@@ -510,7 +510,7 @@ Transformer-based LLM
 Generated Unit Test
 ```
 
-Tôi hiểu mối liên hệ giữa paper và project như sau:
+Nhóm hiểu mối liên hệ giữa paper và project như sau:
 
 ```text
 Attention Is All You Need
@@ -532,13 +532,13 @@ Unit Test Generation
 
 Tuy nhiên, bài báo **không trực tiếp giải quyết bài toán unit test generation**.
 
-Do đó, tôi chỉ sử dụng paper như một **nền tảng lý thuyết**, còn phần context-aware test generation là phần nghiên cứu và phát triển của project.
+Do đó, nhóm chỉ sử dụng paper như một **nền tảng lý thuyết**, còn phần context-aware test generation là phần nghiên cứu và phát triển của project.
 
 ---
 
-# 16. Context trong project của tôi
+# 16. Context trong project của nhóm
 
-Tôi không muốn giới hạn context chỉ ở source code của method cần test.
+Nhóm không muốn giới hạn context chỉ ở source code của method cần test.
 
 Context có thể bao gồm:
 
@@ -582,7 +582,7 @@ Source Code ──► Context Analyzer
 
 # 17. Ví dụ cụ thể
 
-Giả sử tôi cần sinh test cho:
+Giả sử nhóm cần sinh test cho:
 
 ```java
 public boolean login(String username, String password) {
@@ -633,9 +633,9 @@ Từ đó có thể sinh test đầy đủ hơn.
 
 ---
 
-# 18. Insight quan trọng nhất tôi rút ra
+# 18. Insight quan trọng nhất nhóm rút ra
 
-Sau khi đọc paper, tôi nhận ra:
+Sau khi đọc paper, nhóm nhận ra:
 
 > Vấn đề của project không đơn giản là "dùng LLM để sinh test".
 
@@ -651,11 +651,11 @@ Test
 
 thì project khó thể hiện rõ contribution nghiên cứu.
 
-Vấn đề tôi muốn nghiên cứu là:
+Vấn đề nhóm muốn nghiên cứu là:
 
 > **LLM cần những context nào để sinh unit test tốt hơn?**
 
-Do đó tôi cần nghiên cứu:
+Do đó nhóm cần nghiên cứu:
 
 ```text
 Context Extraction
@@ -692,11 +692,11 @@ Unit Test
 
 ## 20.1. Tư tưởng Attention
 
-Tôi sử dụng để hiểu nền tảng của Transformer-based LLM.
+Nhóm sử dụng để hiểu nền tảng của Transformer-based LLM.
 
 ## 20.2. Ablation Study
 
-Đây là phương pháp tôi có thể áp dụng trực tiếp vào nghiên cứu.
+Đây là phương pháp nhóm có thể áp dụng trực tiếp vào nghiên cứu.
 
 Ví dụ:
 
@@ -762,13 +762,13 @@ Các thành phần sau chủ yếu có giá trị tham khảo:
 * Training configuration của paper.
 * Translation-specific decoding.
 
-Tôi không nên sao chép các thành phần này vào project chỉ vì chúng xuất hiện trong paper.
+Nhóm không nên sao chép các thành phần này vào project chỉ vì chúng xuất hiện trong paper.
 
 ---
 
 # 23. Những gì không nên sao chép
 
-Tôi không nên thực hiện:
+Nhóm không nên thực hiện:
 
 ```text
 Attention Is All You Need
@@ -935,7 +935,7 @@ Mutation Score
 
 # 26. Evaluation Strategy
 
-Tôi dự kiến thực hiện các experiment:
+Nhóm dự kiến thực hiện các experiment:
 
 ### Strategy 0 — No Context
 
@@ -1168,9 +1168,9 @@ Tác giả cũng đề cập restricted self-attention như một hướng nghi�
 
 ---
 
-## 29.2. Hạn chế tôi suy ra khi áp dụng vào project
+## 29.2. Hạn chế nhóm suy ra khi áp dụng vào project
 
-Đây là nhận xét của tôi, không phải kết luận trực tiếp của tác giả.
+Đây là nhận xét của nhóm, không phải kết luận trực tiếp của tác giả.
 
 ### Hạn chế 1 — Repository quá lớn
 
@@ -1200,7 +1200,7 @@ Do đó project vẫn cần program analysis để xác định context.
 
 # 30. Research Opportunity
 
-Từ những vấn đề trên, tôi xác định một hướng nghiên cứu:
+Từ những vấn đề trên, nhóm xác định một hướng nghiên cứu:
 
 ```text
 Transformer-based LLM
@@ -1384,7 +1384,7 @@ Token Cost
 
 Các baseline của paper phù hợp với bối cảnh machine translation năm 2017.
 
-Tuy nhiên, project của tôi nên có baseline tập trung vào context strategies:
+Tuy nhiên, project của nhóm nên có baseline tập trung vào context strategies:
 
 ```text
 No Context
@@ -1397,11 +1397,11 @@ Full Context
 
 # 33. Data Leakage trong project
 
-Đây là vấn đề tôi cần đặc biệt lưu ý khi thực nghiệm.
+Đây là vấn đề nhóm cần đặc biệt lưu ý khi thực nghiệm.
 
 Nếu source code hoặc test của benchmark đã xuất hiện trong dữ liệu training của LLM, kết quả có thể bị ảnh hưởng.
 
-Do đó, tôi nên tránh chia dataset đơn giản theo từng method.
+Do đó, nhóm nên tránh chia dataset đơn giản theo từng method.
 
 Thay vào đó nên ưu tiên chia theo:
 
@@ -1423,7 +1423,7 @@ Repository C → Final Evaluation
 
 # 34. Reproducibility của project
 
-Để experiment có thể tái lập, tôi cần lưu:
+Để experiment có thể tái lập, nhóm cần lưu:
 
 ```text
 Model
@@ -1445,9 +1445,9 @@ Token Usage
 
 ---
 
-# 35. Những gì tôi học được từ bài báo
+# 35. Những gì nhóm học được từ bài báo
 
-Sau khi đọc Attention Is All You Need, tôi rút ra 7 điểm quan trọng:
+Sau khi đọc Attention Is All You Need, nhóm rút ra 7 điểm quan trọng:
 
 1. Transformer giải quyết sequence modeling bằng Attention thay vì recurrence.
 2. Self-Attention cho phép model xem xét relationship giữa các thành phần khác nhau của input.
@@ -1459,9 +1459,9 @@ Sau khi đọc Attention Is All You Need, tôi rút ra 7 điểm quan trọng:
 
 ---
 
-# 36. Những gì tôi đưa vào project
+# 36. Những gì nhóm đưa vào project
 
-Các kiến thức tôi có thể đưa vào project:
+Các kiến thức nhóm có thể đưa vào project:
 
 ```text
 Transformer
@@ -1476,9 +1476,9 @@ Tuy nhiên, Transformer và Attention được sử dụng chủ yếu ở mức
 
 ---
 
-# 37. Những gì tôi không nên sao chép
+# 37. Những gì nhóm không nên sao chép
 
-Tôi không nên sao chép nguyên bản:
+Nhóm không nên sao chép nguyên bản:
 
 ```text
 WMT14
@@ -1496,11 +1496,11 @@ vì đây là các thành phần phụ thuộc vào bài toán machine translati
 
 # 38. Kết luận
 
-Attention Is All You Need là một paper nền tảng giúp tôi hiểu kiến trúc Transformer và cơ chế Attention đứng phía sau các LLM hiện đại.
+Attention Is All You Need là một paper nền tảng giúp nhóm hiểu kiến trúc Transformer và cơ chế Attention đứng phía sau các LLM hiện đại.
 
 Đối với project `context-aware-unit-test-generation`, đóng góp quan trọng nhất của paper không phải là một thuật toán unit-test generation có thể lấy và chạy trực tiếp.
 
-Thay vào đó, paper giúp tôi hiểu:
+Thay vào đó, paper giúp nhóm hiểu:
 
 ```text
 Transformer
@@ -1514,7 +1514,7 @@ Transformer-based LLM
 Có khả năng xử lý nhiều nguồn context
 ```
 
-Từ đó tôi xác định vấn đề nghiên cứu của project:
+Từ đó nhóm xác định vấn đề nghiên cứu của project:
 
 ```text
 Source Code + Requirement + Context
@@ -1528,7 +1528,7 @@ Source Code + Requirement + Context
    Compilation / Coverage / Mutation
 ```
 
-Điểm tôi muốn nghiên cứu không phải là:
+Điểm nhóm muốn nghiên cứu không phải là:
 
 > "Làm thế nào để xây dựng một Transformer?"
 
@@ -1536,7 +1536,7 @@ mà là:
 
 > **"Làm thế nào để cung cấp và lựa chọn context phù hợp để Transformer-based LLM sinh unit test có chất lượng tốt hơn?"**
 
-Do đó, Attention Is All You Need đóng vai trò là **cơ sở lý thuyết** cho project, trong khi phần **context extraction, context selection, context augmentation và evaluation bằng software-testing metrics** là phần tôi phát triển cho bài toán của mình.
+Do đó, Attention Is All You Need đóng vai trò là **cơ sở lý thuyết** cho project, trong khi phần **context extraction, context selection, context augmentation và evaluation bằng software-testing metrics** là phần nhóm phát triển cho bài toán của mình.
 
 ---
 
@@ -1573,4 +1573,4 @@ Compilation / Coverage /
 
 **Vai trò cuối cùng của bài báo trong project:**
 
-> **Cung cấp nền tảng lý thuyết để hiểu Transformer và Attention, từ đó làm cơ sở cho việc nghiên cứu cách cung cấp và lựa chọn context cho LLM trong bài toán tự động sinh unit test.**
+> **Cung cấp nền tảng lý thuyết để nhóm hiểu Transformer và Attention, từ đó làm cơ sở cho việc nghiên cứu cách cung cấp và lựa chọn context cho LLM trong bài toán tự động sinh unit test.**
