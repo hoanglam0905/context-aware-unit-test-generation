@@ -91,8 +91,8 @@
       "properties": {
         "contextAwareTestGen.modelProvider": {
           "type": "string",
-          "default": "gemini",
-          "enum": ["gemini", "deepseek", "openai", "ollama"],
+          "default": "ollama",
+          "enum": ["ollama", "gemini", "deepseek", "openai"],
           "description": "LLM Provider for test generation"
         },
         "contextAwareTestGen.promptStrategy": {

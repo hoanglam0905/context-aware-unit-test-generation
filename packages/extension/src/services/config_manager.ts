@@ -45,14 +45,10 @@ export class ConfigurationManager {
     this.loadEnvFallback();
 
     const config = vscode.workspace.getConfiguration('contextAwareTestGen');
-    
-    // Tự động ưu tiên Ollama nếu trong .env có USE_OLLAMA=true
-    let defaultProvider: ExtensionConfiguration['modelProvider'] = 'gemini';
-    if (process.env.USE_OLLAMA === 'true') {
-      defaultProvider = 'ollama';
+    let modelProvider = config.get('modelProvider', 'ollama') as ExtensionConfiguration['modelProvider'];
+    if (process.env.USE_OLLAMA === 'true' || !modelProvider) {
+      modelProvider = 'ollama';
     }
-
-    const modelProvider = config.get('modelProvider', defaultProvider) as ExtensionConfiguration['modelProvider'];
     const promptStrategy = config.get('promptStrategy', 'hybrid') as ExtensionConfiguration['promptStrategy'];
     const autoRunCoverage = config.get('autoRunCoverage', true) as boolean;
 
