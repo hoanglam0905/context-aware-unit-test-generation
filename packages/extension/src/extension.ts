@@ -1,11 +1,13 @@
-import * as vscode from 'vscode';
 import { ContextAwareSidebarProvider } from './sidebar/sidebar_provider';
-import { TestPreviewPanel } from './webview/preview_panel';
+import { TestGenerationService } from './services/test_generation_service';
+import { vscode } from './vscode_shim';
 
-let statusBarItem: vscode.StatusBarItem;
+let statusBarItem: any;
 
-export function activate(context: vscode.ExtensionContext): void {
+export function activate(context: any): void {
   console.log('🚀 Context-Aware Unit Test Generator Extension is now active!');
+
+  const testGenService = new TestGenerationService();
 
   // 1. Đăng ký Sidebar Provider
   const sidebarProvider = new ContextAwareSidebarProvider(context.extensionUri);
@@ -16,11 +18,11 @@ export function activate(context: vscode.ExtensionContext): void {
     )
   );
 
-  // 2. Đăng ký Command chính: Sinh Unit Test từ BA Context
+  // 2. Đăng ký Command chính: Sinh Unit Test từ BA Context (Gọi E2E Pipeline)
   const generateTestCommand = vscode.commands.registerCommand(
     'contextAwareTestGen.generateTest',
-    async (uri?: vscode.Uri) => {
-      const targetUri = uri || vscode.window.activeTextEditor?.document.uri;
+    async (uri?: any) => {
+      const targetUri = uri || vscode.window.activeTextEditor?.document?.uri;
 
       if (!targetUri) {
         vscode.window.showWarningMessage(
@@ -29,18 +31,7 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
 
-      // Mở Preview Panel
-      const panel = TestPreviewPanel.createOrShow(context.extensionUri, {
-        serviceName: targetUri.path.split('/').pop() || 'Service',
-        strategy: 'hybrid',
-        scenarios: [],
-        testCode: `// Đang phân tích mã nguồn AST và tài liệu BA cho: ${targetUri.fsPath}...\n`,
-        syntaxValid: true,
-      });
-
-      vscode.window.showInformationMessage(
-        `[Context-Aware] Đang trích xuất ngữ cảnh AST & BA cho: ${targetUri.fsPath}`
-      );
+      await testGenService.generateForFile(targetUri, context.extensionUri);
     }
   );
 

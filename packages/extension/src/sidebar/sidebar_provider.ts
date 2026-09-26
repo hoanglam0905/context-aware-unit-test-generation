@@ -1,16 +1,16 @@
-import * as vscode from 'vscode';
 import { HostToWebviewMessage, WebviewToHostMessage } from '../types';
+import { vscode } from '../vscode_shim';
 
-export class ContextAwareSidebarProvider implements vscode.WebviewViewProvider {
+export class ContextAwareSidebarProvider {
   public static readonly viewType = 'contextAwareTestGen.sidebarView';
-  private _view?: vscode.WebviewView;
+  private _view?: any;
 
-  constructor(private readonly _extensionUri: vscode.Uri) {}
+  constructor(private readonly _extensionUri: any) {}
 
   public resolveWebviewView(
-    webviewView: vscode.WebviewView,
-    _context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken
+    webviewView: any,
+    _context: any,
+    _token: any
   ): void {
     this._view = webviewView;
 
@@ -41,10 +41,10 @@ export class ContextAwareSidebarProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  public _getHtmlForWebview(webview: vscode.Webview): string {
+  public _getHtmlForWebview(_webview: any): string {
     const config = vscode.workspace.getConfiguration('contextAwareTestGen');
-    const provider = config.get<string>('modelProvider', 'gemini');
-    const strategy = config.get<string>('promptStrategy', 'hybrid');
+    const provider = config.get('modelProvider', 'gemini');
+    const strategy = config.get('promptStrategy', 'hybrid');
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -136,11 +136,11 @@ export class ContextAwareSidebarProvider implements vscode.WebviewViewProvider {
     <div class="card-title">Cấu hình hiện tại</div>
     <div class="info-row">
       <span>Provider:</span>
-      <strong>${provider.toUpperCase()}</strong>
+      <strong>${String(provider).toUpperCase()}</strong>
     </div>
     <div class="info-row">
       <span>Strategy:</span>
-      <strong>${strategy.toUpperCase()}</strong>
+      <strong>${String(strategy).toUpperCase()}</strong>
     </div>
   </div>
 

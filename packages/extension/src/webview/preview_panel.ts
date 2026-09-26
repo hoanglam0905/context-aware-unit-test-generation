@@ -1,15 +1,15 @@
-import * as vscode from 'vscode';
 import { HostToWebviewMessage, WebviewToHostMessage } from '../types';
+import { vscode } from '../vscode_shim';
 
 export class TestPreviewPanel {
   public static currentPanel: TestPreviewPanel | undefined;
   public static readonly viewType = 'contextAwareTestGen.testPreview';
 
-  private readonly _panel: vscode.WebviewPanel;
-  private readonly _extensionUri: vscode.Uri;
-  private _disposables: vscode.Disposable[] = [];
+  private readonly _panel: any;
+  private readonly _extensionUri: any;
+  private _disposables: any[] = [];
 
-  public static createOrShow(extensionUri: vscode.Uri, initialData?: any): TestPreviewPanel {
+  public static createOrShow(extensionUri: any, initialData?: any): TestPreviewPanel {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
       : undefined;
@@ -41,7 +41,7 @@ export class TestPreviewPanel {
     return TestPreviewPanel.currentPanel;
   }
 
-  private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
+  private constructor(panel: any, extensionUri: any) {
     this._panel = panel;
     this._extensionUri = extensionUri;
 
@@ -53,7 +53,7 @@ export class TestPreviewPanel {
       (message: WebviewToHostMessage) => {
         switch (message.type) {
           case 'ACCEPT_TEST': {
-            vscode.window.showInformationMessage('✅ Đã chấp nhận và lưu file test thành công!');
+            vscode.window.showInformationMessage('✅ Đã lưu file test thành công vào workspace!');
             break;
           }
           case 'REJECT_TEST': {
@@ -89,7 +89,7 @@ export class TestPreviewPanel {
     }
   }
 
-  public _getHtmlForWebview(_webview: vscode.Webview): string {
+  public _getHtmlForWebview(_webview: any): string {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -102,6 +102,7 @@ export class TestPreviewPanel {
       padding: 16px;
       color: var(--vscode-foreground);
       background-color: var(--vscode-editor-background);
+      line-height: 1.5;
     }
     .header {
       display: flex;
@@ -112,18 +113,40 @@ export class TestPreviewPanel {
       margin-bottom: 16px;
     }
     .title {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     .badge {
       background: var(--vscode-badge-background);
       color: var(--vscode-badge-foreground);
-      padding: 4px 8px;
+      padding: 3px 8px;
       border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .metrics-bar {
+      display: flex;
+      gap: 16px;
+      background: var(--vscode-sideBar-background);
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--vscode-widget-border);
+      margin-bottom: 16px;
       font-size: 12px;
     }
+    .metric-item {
+      display: flex;
+      gap: 6px;
+    }
+    .metric-val {
+      font-weight: 600;
+      color: var(--vscode-progressBar-background, #388bfd);
+    }
     .section-title {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       margin-top: 16px;
       margin-bottom: 8px;
@@ -146,6 +169,13 @@ export class TestPreviewPanel {
       border-radius: 6px;
       font-size: 12px;
     }
+    .category-tag {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+      background: rgba(255,255,255,0.1);
+    }
     .code-container {
       background: var(--vscode-textCodeBlock-background);
       border: 1px solid var(--vscode-widget-border);
@@ -154,7 +184,7 @@ export class TestPreviewPanel {
       font-family: var(--vscode-editor-font-family, monospace);
       font-size: 12px;
       overflow-x: auto;
-      max-height: 400px;
+      max-height: 420px;
       white-space: pre;
     }
     .action-bar {
@@ -172,7 +202,7 @@ export class TestPreviewPanel {
       padding: 8px 16px;
       border-radius: 4px;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 500;
     }
     .btn:hover {
@@ -182,40 +212,34 @@ export class TestPreviewPanel {
       background: var(--vscode-button-secondaryBackground);
       color: var(--vscode-button-secondaryForeground);
     }
+    .btn-secondary:hover {
+      background: var(--vscode-button-secondaryHoverBackground);
+    }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="title" id="serviceHeader">🧪 Sinh Unit Test: <span id="serviceName">DiscountCalculatorService</span></div>
-    <span class="badge" id="strategyBadge">HYBRID (BA + Code)</span>
+    <div class="title">🧪 Dịch Vụ: <span id="serviceName">Service</span></div>
+    <span class="badge" id="strategyBadge">HYBRID (BA + Code AST)</span>
   </div>
 
-  <div class="section-title">📋 Danh Sách Kịch Bản Test (Acceptance Criteria)</div>
+  <div class="metrics-bar" id="metricsBar">
+    <div class="metric-item">📊 Trạng thái: <span class="metric-val" id="syntaxStatus">Hợp lệ</span></div>
+    <div class="metric-item">📈 Line Coverage: <span class="metric-val" id="lineCov">Đang đo...</span></div>
+    <div class="metric-item">🌿 Branch Coverage: <span class="metric-val" id="branchCov">Đang đo...</span></div>
+  </div>
+
+  <div class="section-title">📋 Kịch Bản Kiểm Thử Đề Xuất (Acceptance Criteria)</div>
   <div class="scenario-list" id="scenarioList">
-    <div class="scenario-item">
-      <input type="checkbox" checked id="sc1">
-      <label for="sc1"><strong>[Happy Path]</strong> Tính giảm giá cho hạng REGULAR = 0%</label>
-    </div>
-    <div class="scenario-item">
-      <input type="checkbox" checked id="sc2">
-      <label for="sc2"><strong>[Happy Path]</strong> Tính giảm giá cho hạng GOLD >= 1,000,000 VND</label>
-    </div>
-    <div class="scenario-item">
-      <input type="checkbox" checked id="sc3">
-      <label for="sc3"><strong>[Boundary]</strong> Áp dụng trần giảm giá tối đa 500,000 VND</label>
-    </div>
-    <div class="scenario-item">
-      <input type="checkbox" checked id="sc4">
-      <label for="sc4"><strong>[Exception]</strong> Ném lỗi InvalidOrderAmountException khi amount <= 0</label>
-    </div>
+    <div style="opacity: 0.7; font-size: 12px;">Đang tải danh sách kịch bản...</div>
   </div>
 
-  <div class="section-title">💻 Mã Kiểm Thử Sinh Ra (Jest / TypeScript)</div>
-  <pre class="code-container" id="codeContainer">// Đang tải mã nguồn kiểm thử...</pre>
+  <div class="section-title">💻 Mã Unit Test Sinh Ra (Jest / TypeScript)</div>
+  <pre class="code-container" id="codeContainer">// Đang phân tích mã nguồn và sinh test...</pre>
 
   <div class="action-bar">
     <button class="btn btn-secondary" id="rejectBtn">❌ Hủy Bỏ</button>
-    <button class="btn" id="acceptBtn">💾 Lưu File Test Vào Workspace</button>
+    <button class="btn" id="acceptBtn">💾 Chấp Nhận & Lưu File Test</button>
   </div>
 
   <script>
@@ -235,6 +259,29 @@ export class TestPreviewPanel {
         if (payload.testCode) {
           currentTestCode = payload.testCode;
           document.getElementById('codeContainer').textContent = payload.testCode;
+        }
+        if (payload.coverage) {
+          document.getElementById('lineCov').textContent = payload.coverage.lines + '%';
+          document.getElementById('branchCov').textContent = payload.coverage.branches + '%';
+        }
+        if (payload.syntaxValid !== undefined) {
+          document.getElementById('syntaxStatus').textContent = payload.syntaxValid ? '✅ Sẵn sàng' : '⚠️ Lỗi cú pháp';
+        }
+
+        // Render Scenarios
+        const scList = document.getElementById('scenarioList');
+        if (payload.scenarios && payload.scenarios.length > 0) {
+          scList.innerHTML = '';
+          payload.scenarios.forEach((s, idx) => {
+            const item = document.createElement('div');
+            item.className = 'scenario-item';
+            item.innerHTML = \`
+              <input type="checkbox" checked id="sc_\${idx}">
+              <span class="category-tag">\${s.category || 'General'}</span>
+              <label for="sc_\${idx}">\${s.description}</label>
+            \`;
+            scList.appendChild(item);
+          });
         }
       }
     });
