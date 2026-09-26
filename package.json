@@ -11,7 +11,8 @@
     "test:coverage": "jest --coverage",
     "experiment:batch": "ts-node experiments/batch_runner.ts",
     "experiment:evaluate": "ts-node experiments/evaluate_generated_tests.ts",
-    "experiment:report": "ts-node experiments/generate_report.ts"
+    "experiment:report": "ts-node experiments/generate_report.ts",
+    "experiment:mutation": "ts-node experiments/run_mutation_testing.ts"
   },
   "dependencies": {
     "dotenv": "^16.6.1"
