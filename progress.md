@@ -11,41 +11,41 @@
 | :--- | :--- | :--- | :---: | :---: |
 | `feature/A` | **Thành viên A** | AI / Prompt Engineering, Benchmark Dataset & Report Generator | **HOÀN THÀNH** | 100% `[████████████████████████████████]` |
 | `feature/B` | **Thành viên B** | Core Engine, AST Code Extractor, E2E Pipeline & Mutation Testing | **HOÀN THÀNH** | 100% `[████████████████████████████████]` |
-| `feature/C` | **Thành viên C** | VS Code Extension, Webview UI & Auto-fix Test Runner | **SẴN SÀNG** | Chuẩn bị tích hợp |
+| `feature/C` | **Thành viên C** | VS Code Extension, Webview UI, Auto-fix Loop & Demo Package | **HOÀN THÀNH** | 100% `[████████████████████████████████]` |
 
 ---
 
-## 📋 2. Chi Tiết Các Hạng Mục Công Việc Nhánh `feature/B` (Thành viên B)
+## 📋 2. Chi Tiết Các Hạng Mục Công Việc Nhánh `feature/C` (Thành viên C)
 
-### ✅ Step 1: Phân tích AST & Context Extractor (ĐÃ HOÀN THÀNH)
-- [x] **Data Structures & Interfaces (`packages/core/src/extractor/types.ts`):** Thiết kế `ContextPayload`, `CodeContext`, `RequirementContext` kết nối Core Engine, Prompt Strategies và VS Code Extension.
-- [x] **TypeScript AST Parser (`packages/core/src/extractor/ast_parser.ts`):** Sử dụng TypeScript Compiler API bóc tách Class, Method signatures (parameters, return type, visibility, async, static, JSDoc), Imports, Types/Interfaces/Enums.
-- [x] **Requirement Parser (`packages/core/src/extractor/requirement_parser.ts`):** Parser tài liệu BA (Markdown, Gherkin Scenarios / Outline / Examples, JSON structured format).
-- [x] **Context Extractor (`packages/core/src/extractor/context_extractor.ts`):** Kết hợp Code AST và BA Requirement thành `PromptContext` chuẩn hóa.
-- [x] **Unit Tests (`packages/core/src/extractor.test.ts`):** 100% Test Passed.
+### ✅ Step 1: Khởi tạo Khung Extension & Webview Setup (ĐÃ HOÀN THÀNH)
+- [x] **Manifest Extension (`packages/extension/package.json`):** Đăng ký Commands (`generateTest`, `openSettings`, `openSidebar`), Menu chuột phải trong Editor và Explorer.
+- [x] **Sidebar View Provider (`packages/extension/src/sidebar/sidebar_provider.ts`):** Xây dựng giao diện Sidebar panel với trạng thái cấu hình và nút bấm thao tác nhanh.
+- [x] **Webview Preview Panel (`packages/extension/src/webview/preview_panel.ts`):** Dựng khung giao diện Preview hiển thị danh sách kịch bản test và mã nguồn kiểm thử.
+- [x] **Status Bar & Keybindings:** Đăng ký Status bar item `$(beaker) AI Test Gen` và phím tắt `Ctrl+Shift+U` / `Cmd+Shift+U`.
+- [x] **Unit Tests (`packages/extension/src/extension.test.ts`):** 100% Test Passed.
 
-### ✅ Step 2: Hậu Xử Lý & E2E Generation Pipeline (ĐÃ HOÀN THÀNH)
-- [x] **Test Post-Processor (`packages/core/src/pipeline/post_processor.ts`):** Bóc tách markdown codeblocks, phân tích JSON schema, tự động trích xuất danh sách `testScenarios` (Happy Path, Edge Case, Exception) và kiểm tra cú pháp TypeScript bằng Transpiler Diagnostics.
-- [x] **Coverage Runner (`packages/core/src/pipeline/coverage_runner.ts`):** Thực thi Jest Runner tự động và thu thập Line / Branch / Function / Statement Coverage.
-- [x] **Core Generator Pipeline (`packages/core/src/pipeline/generator_pipeline.ts`):** Luồng E2E hoàn chỉnh từ file Service + BA doc ➔ Prompt Injection ➔ LLM Gateway ➔ Post-processor ➔ Coverage.
-- [x] **Unit Tests (`packages/core/src/pipeline.test.ts`):** 100% Test Passed.
+### ✅ Step 2: Tích hợp Core Engine & Webview Tương Tác (ĐÃ HOÀN THÀNH)
+- [x] **Configuration Manager (`packages/extension/src/services/config_manager.ts`):** Đồng bộ cấu hình Settings và fallback `.env` cho Gemini, DeepSeek, OpenAI, Ollama Local.
+- [x] **Requirement Finder (`packages/extension/src/services/requirement_finder.ts`):** Tự động phát hiện file tài liệu BA tương ứng (`requirement.md`, `spec.md`, `srs.md`, `*.json`) trong workspace.
+- [x] **Test Generation Service (`packages/extension/src/services/test_generation_service.ts`):** Điều phối luồng sinh test E2E và ghi file `.test.ts` trực tiếp vào workspace khi người dùng duyệt.
+- [x] **Interactive Preview UI:** Hỗ trợ checkbox chọn lọc kịch bản, hiển thị thẻ phân loại (`Happy Path`, `Boundary`, `Exception`) và chỉ số Line/Branch Coverage thời gian thực.
+- [x] **Unit Tests (`packages/extension/src/step2.test.ts`):** 100% Test Passed.
 
-### ✅ Step 3: Mutation Testing Pipeline & So Sánh NCKH (ĐÃ HOÀN THÀNH)
-- [x] **AST Code Mutators (`packages/core/src/mutation/mutators.ts`):** 6 nhóm toán tử đột biến (`CONDITIONAL_BOUNDARY`, `EQUALITY_OPERATOR`, `BINARY_EXPRESSION`, `BOOLEAN_LITERAL`, `NUMERIC_LITERAL`, `RETURN_VALUE`).
-- [x] **Mutation Runner (`packages/core/src/mutation/mutation_runner.ts`):** Thực thi từng cá thể Mutant trong Sandbox Jest cô lập, phân loại `KILLED` vs `SURVIVED` và tính `MutationScore (%)`.
-- [x] **Mutation Analyzer (`packages/core/src/mutation/mutation_analyzer.ts`):** So sánh Mutation Score giữa các kỹ thuật Prompt, chứng minh khả năng tiêu diệt lỗi nghiệp vụ của Hybrid Prompting.
-- [x] **Script & CLI (`experiments/run_mutation_testing.ts`):** Tích hợp lệnh `npm run experiment:mutation`.
-- [x] **Unit Tests (`packages/core/src/mutation.test.ts`):** 100% Test Passed.
+### ✅ Step 3: Tính Năng Self-Reflection Auto-Fix & Đo Đạc UX (ĐÃ HOÀN THÀNH)
+- [x] **Auto-Fix Engine (`packages/extension/src/services/auto_fix_engine.ts`):** Cơ chế phản xạ (Self-Reflection Loop) tự động sửa lỗi cú pháp TypeScript và assertion failure qua LLM (tối đa 2 vòng lặp).
+- [x] **Metrics Collector (`packages/extension/src/services/metrics_collector.ts`):** Ghi nhận và tổng hợp số liệu đo đạc thời gian phản hồi (Latency), số token tiêu thụ và tỉ lệ sửa lỗi thành công.
+- [x] **UX Optimization:** Tích hợp Notification Progress Bar, Toast messages và phím tắt nhanh.
+- [x] **Unit Tests (`packages/extension/src/step3.test.ts`):** 100% Test Passed.
 
-### ✅ Step 4: Kiến Trúc Hệ Thống & Bàn Giao (ĐÃ HOÀN THÀNH)
-- [x] **Tài liệu Kiến trúc (`docs/core_engine_architecture.md`):** Soạn thảo tài liệu thiết kế hệ thống, sơ đồ tuần tự luồng dữ liệu Mermaid, cơ chế bóc tách AST và phương pháp luận Mutation Testing.
-- [x] **Main Entrypoint (`packages/core/src/index.ts`):** Đóng gói và xuất đầy đủ các module core engine cho Extension.
-- [x] **Toàn bộ Test Suite:** 100% Passed trên toàn dự án.
+### ✅ Step 4: Đóng Gói Sản Phẩm, Tài Liệu Hướng Dẫn & Video Demo (ĐÃ HOÀN THÀNH)
+- [x] **Tài liệu Hướng Dẫn & Kịch Bản Demo (`docs/extension_guide.md`):** Hướng dẫn cài đặt file `.vsix`, cấu hình API, quy trình sử dụng và kịch bản video demo 4 phân đoạn (3-5 phút).
+- [x] **Extension Documentation (`packages/extension/README.md`):** Tài liệu giới thiệu sản phẩm và hướng dẫn đóng gói (`vsce package`).
+- [x] **Kiểm thử toàn diện toàn bộ Workspace:** 100% Passed trên cả `packages/core` và `packages/extension`.
 
 ---
 
-## 🎯 3. Kế Hoạch Bàn Giao Cho Thành Viên C (VS Code Extension)
+## 🏆 3. Tổng Kết Thành Quả Đạt Được (Deliverables)
 
-- **API Tích hợp:** Nhập trực tiếp `CoreGeneratorPipeline` từ `packages/core`.
-- **Dữ liệu hiển thị:** Truy xuất `result.processedOutput.testScenarios` để render danh sách kịch bản test lên Webview Preview cho lập trình viên tick chọn trước khi ghi file test.
-- **Auto-Fixing Loop:** Sử dụng `result.processedOutput.syntaxValidation` và `result.execution.errorMessage` để tự động kích hoạt vòng lặp phản hồi sửa mã (Reflection Loop).
+1. **AI Pipeline & Prompt Engineering:** 4 chiến lược Prompting (`Zero-shot`, `Few-shot`, `CoT`, `Hybrid`), 15 Benchmark Services đa tầng độ phức tạp, và bộ Report Generator xuất ma trận số liệu NCKH.
+2. **Core Engine & Evaluation Pipeline:** AST Code Parser, BA Requirement Ingestion, Runner đo Line/Branch Coverage và Hệ thống Mutation Testing với 6 toán tử biến dị.
+3. **VS Code Extension & Automation:** Tiện ích mở rộng hoàn chỉnh trên VS Code với giao diện Webview Preview tương tác, phím tắt `Ctrl+Shift+U`, tính năng Self-Reflection Auto-Fix và quy trình sinh test E2E 1-click.

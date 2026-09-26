@@ -1,0 +1,118 @@
+{
+  "name": "context-aware-unit-test-generation-extension",
+  "displayName": "Context-Aware Unit Test Generator",
+  "description": "Automatically generate unit tests from source code and BA requirements using LLMs",
+  "version": "0.1.0",
+  "publisher": "utc2-research-team",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Testing",
+    "Programming Languages",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "unit test",
+    "llm",
+    "business requirement",
+    "gherkin",
+    "ast",
+    "test generation"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "contextAwareTestGen.generateTest",
+        "title": "Context-Aware: Generate Unit Test from BA Context",
+        "category": "Test Generation",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "contextAwareTestGen.openSettings",
+        "title": "Context-Aware: Open Settings",
+        "category": "Test Generation",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "contextAwareTestGen.openSidebar",
+        "title": "Context-Aware: Focus Sidebar",
+        "category": "Test Generation"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "contextAwareTestGen.generateTest",
+          "when": "editorTextFocus && (resourceExtname == .ts || resourceExtname == .js)",
+          "group": "7_modification"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "contextAwareTestGen.generateTest",
+          "when": "resourceExtname == .ts || resourceExtname == .js",
+          "group": "7_modification"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "contextAwareTestGen.generateTest",
+        "key": "ctrl+shift+u",
+        "mac": "cmd+shift+u",
+        "when": "editorTextFocus"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "context-aware-test-gen-container",
+          "title": "Context-Aware Test Gen",
+          "icon": "$(beaker)"
+        }
+      ]
+    },
+    "views": {
+      "context-aware-test-gen-container": [
+        {
+          "type": "webview",
+          "id": "contextAwareTestGen.sidebarView",
+          "name": "AI Test Generator"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Context-Aware Test Generator",
+      "properties": {
+        "contextAwareTestGen.modelProvider": {
+          "type": "string",
+          "default": "gemini",
+          "enum": ["gemini", "deepseek", "openai", "ollama"],
+          "description": "LLM Provider for test generation"
+        },
+        "contextAwareTestGen.promptStrategy": {
+          "type": "string",
+          "default": "hybrid",
+          "enum": ["zero-shot", "few-shot", "cot", "hybrid"],
+          "description": "Default prompt engineering strategy"
+        },
+        "contextAwareTestGen.autoRunCoverage": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically run Jest coverage after generating tests"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.3"
+  }
+}
