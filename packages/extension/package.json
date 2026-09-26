@@ -21,6 +21,9 @@
     "test generation"
   ],
   "main": "./dist/packages/extension/src/extension.js",
+  "activationEvents": [
+    "*"
+  ],
   "contributes": {
     "commands": [
       {
@@ -70,7 +73,7 @@
         {
           "id": "context-aware-test-gen-container",
           "title": "Context-Aware Test Gen",
-          "icon": "$(beaker)"
+          "icon": "media/icon.svg"
         }
       ]
     },
