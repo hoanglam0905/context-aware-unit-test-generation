@@ -20,7 +20,7 @@
     "ast",
     "test generation"
   ],
-  "main": "./dist/extension.js",
+  "main": "./dist/packages/extension/src/extension.js",
   "contributes": {
     "commands": [
       {
