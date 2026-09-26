@@ -18,15 +18,24 @@ export function activate(context: any): void {
 
   // 2. Đăng ký Inline CodeLens Provider
   if (vscode.languages && vscode.languages.registerCodeLensProvider) {
-    context.subscriptions.push(
-      vscode.languages.registerCodeLensProvider(
-        [
-          { language: 'typescript', scheme: 'file' },
-          { language: 'javascript', scheme: 'file' },
-        ],
-        codeLensProvider
-      )
-    );
+    const supportedLanguages = [
+      'typescript',
+      'javascript',
+      'python',
+      'java',
+      'csharp',
+      'go',
+      'php',
+      'cpp',
+    ];
+    for (const lang of supportedLanguages) {
+      context.subscriptions.push(
+        vscode.languages.registerCodeLensProvider(
+          { language: lang, scheme: 'file' },
+          codeLensProvider
+        )
+      );
+    }
   }
 
   // 3. Đăng ký Sidebar Provider

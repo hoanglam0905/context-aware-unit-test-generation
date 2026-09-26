@@ -29,18 +29,17 @@ export class ContextAwareCodeLensProvider {
       for (const cls of codeContext.classes) {
         const lineIdx = this.findLineIndex(text, cls.name);
         if (lineIdx >= 0) {
-          codeLenses.push({
-            range: {
-              start: { line: lineIdx, character: 0 },
-              end: { line: lineIdx, character: 0 },
-            },
-            isResolved: true,
-            command: {
+          const range = new vscode.Range(
+            new vscode.Position(lineIdx, 0),
+            new vscode.Position(lineIdx, 0)
+          );
+          codeLenses.push(
+            new vscode.CodeLens(range, {
               title: `✨ [${langInfo.defaultTestFramework}] Sinh Unit Test cho: ${cls.name}`,
               command: 'contextAwareTestGen.generateTest',
               arguments: [document.uri],
-            },
-          });
+            })
+          );
         }
 
         // 2. CodeLens cho từng Method trong Class
@@ -48,18 +47,17 @@ export class ContextAwareCodeLensProvider {
           if (method.visibility === 'public') {
             const methodLineIdx = this.findLineIndex(text, method.name);
             if (methodLineIdx >= 0) {
-              codeLenses.push({
-                range: {
-                  start: { line: methodLineIdx, character: 0 },
-                  end: { line: methodLineIdx, character: 0 },
-                },
-                isResolved: true,
-                command: {
+              const range = new vscode.Range(
+                new vscode.Position(methodLineIdx, 0),
+                new vscode.Position(methodLineIdx, 0)
+              );
+              codeLenses.push(
+                new vscode.CodeLens(range, {
                   title: `⚡ [${langInfo.defaultTestFramework}] Sinh test BA cho: ${method.name}()`,
                   command: 'contextAwareTestGen.generateTestForMethod',
                   arguments: [document.uri, method.name],
-                },
-              });
+                })
+              );
             }
           }
         }
@@ -69,18 +67,17 @@ export class ContextAwareCodeLensProvider {
       for (const func of codeContext.functions) {
         const funcLineIdx = this.findLineIndex(text, func.name);
         if (funcLineIdx >= 0) {
-          codeLenses.push({
-            range: {
-              start: { line: funcLineIdx, character: 0 },
-              end: { line: funcLineIdx, character: 0 },
-            },
-            isResolved: true,
-            command: {
+          const range = new vscode.Range(
+            new vscode.Position(funcLineIdx, 0),
+            new vscode.Position(funcLineIdx, 0)
+          );
+          codeLenses.push(
+            new vscode.CodeLens(range, {
               title: `⚡ [${langInfo.defaultTestFramework}] Sinh test BA cho hàm: ${func.name}()`,
               command: 'contextAwareTestGen.generateTestForMethod',
               arguments: [document.uri, func.name],
-            },
-          });
+            })
+          );
         }
       }
     } catch {
@@ -93,7 +90,8 @@ export class ContextAwareCodeLensProvider {
   private findLineIndex(fullText: string, searchSubstring: string): number {
     const lines = fullText.split(/\r?\n/);
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].includes(searchSubstring)) {
+      const line = lines[i];
+      if (line.includes(searchSubstring)) {
         return i;
       }
     }

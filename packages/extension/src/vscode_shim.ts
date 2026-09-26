@@ -45,6 +45,15 @@ try {
     Uri: {
       file: (pathStr: string) => ({ fsPath: pathStr, path: pathStr }),
     },
+    Range: class {
+      constructor(public start: any, public end: any) {}
+    },
+    Position: class {
+      constructor(public line: number, public character: number) {}
+    },
+    CodeLens: class {
+      constructor(public range: any, public command?: any) {}
+    },
     ViewColumn: {
       Beside: 2,
     },
