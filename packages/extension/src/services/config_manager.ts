@@ -31,14 +31,28 @@ export class ConfigurationManager {
         dotenv.config({ path: envPath });
       }
     }
+    // Fallback load cwd .env
+    const cwdEnv = path.resolve(process.cwd(), '.env');
+    if (fs.existsSync(cwdEnv)) {
+      dotenv.config({ path: cwdEnv });
+    }
   }
 
   /**
    * Lấy cấu hình đầy đủ từ VS Code Settings và Environment
    */
   public getConfiguration(): ExtensionConfiguration {
+    this.loadEnvFallback();
+
     const config = vscode.workspace.getConfiguration('contextAwareTestGen');
-    const modelProvider = config.get('modelProvider', 'gemini') as ExtensionConfiguration['modelProvider'];
+    
+    // Tự động ưu tiên Ollama nếu trong .env có USE_OLLAMA=true
+    let defaultProvider: ExtensionConfiguration['modelProvider'] = 'gemini';
+    if (process.env.USE_OLLAMA === 'true') {
+      defaultProvider = 'ollama';
+    }
+
+    const modelProvider = config.get('modelProvider', defaultProvider) as ExtensionConfiguration['modelProvider'];
     const promptStrategy = config.get('promptStrategy', 'hybrid') as ExtensionConfiguration['promptStrategy'];
     const autoRunCoverage = config.get('autoRunCoverage', true) as boolean;
 
@@ -70,6 +84,11 @@ export class ConfigurationManager {
     const config = this.getConfiguration();
 
     switch (config.modelProvider) {
+      case 'ollama': {
+        const baseUrl = config.customEndpoint || process.env.OLLAMA_BASE_URL || 'http://localhost:11434/v1';
+        const modelName = process.env.OLLAMA_MODEL || 'qwen2.5-coder:1.5b';
+        return new OpenAICompatibleGateway('Ollama', modelName, 'ollama', baseUrl);
+      }
       case 'gemini': {
         const apiKey = config.apiKey || process.env.GEMINI_API_KEY || '';
         return new GeminiGateway(apiKey, 'gemini-1.5-flash');
@@ -77,10 +96,6 @@ export class ConfigurationManager {
       case 'deepseek': {
         const apiKey = config.apiKey || process.env.DEEPSEEK_API_KEY || '';
         return new OpenAICompatibleGateway('DeepSeek', 'deepseek-coder', apiKey, 'https://api.deepseek.com/v1');
-      }
-      case 'ollama': {
-        const baseUrl = config.customEndpoint || 'http://localhost:11434/v1';
-        return new OpenAICompatibleGateway('Ollama', 'qwen2.5-coder', 'ollama', baseUrl);
       }
       case 'openai':
       default: {
