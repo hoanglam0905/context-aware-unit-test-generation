@@ -42,6 +42,11 @@
         "command": "contextAwareTestGen.openSidebar",
         "title": "Context-Aware: Focus Sidebar",
         "category": "Test Generation"
+      },
+      {
+        "command": "contextAwareTestGen.generateTestForMethod",
+        "title": "Context-Aware: Generate Test for Specific Method",
+        "category": "Test Generation"
       }
     ],
     "menus": {
@@ -105,6 +110,21 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically run Jest coverage after generating tests"
+        },
+        "contextAwareTestGen.enableCodeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show interactive AI test generation CodeLens above classes and methods"
+        },
+        "contextAwareTestGen.autoGenerateOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically trigger background test generation on file save with AST diff checking"
+        },
+        "contextAwareTestGen.debounceDelayMs": {
+          "type": "number",
+          "default": 1500,
+          "description": "Debounce delay (ms) before triggering real-time generation"
         }
       }
     }
