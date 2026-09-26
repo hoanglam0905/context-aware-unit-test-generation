@@ -4,20 +4,25 @@ import { CoreGeneratorPipeline } from '../../../core/src/pipeline/generator_pipe
 import { PipelineResult } from '../../../core/src/pipeline/types';
 import { ConfigurationManager } from './config_manager';
 import { RequirementFinder } from './requirement_finder';
+import { AutoFixEngine } from './auto_fix_engine';
+import { ExtensionMetricsCollector } from './metrics_collector';
 import { TestPreviewPanel } from '../webview/preview_panel';
 import { vscode } from '../vscode_shim';
 
 export class TestGenerationService {
   private configManager: ConfigurationManager;
+  private metricsCollector: ExtensionMetricsCollector;
 
   constructor() {
     this.configManager = ConfigurationManager.getInstance();
+    this.metricsCollector = ExtensionMetricsCollector.getInstance();
   }
 
   /**
-   * Thực hiện luồng sinh Unit Test từ file Service và hiển thị kết quả lên Preview Panel
+   * Thực hiện luồng sinh Unit Test từ file Service và hiển thị kết quả lên Preview Panel (có kèm Auto-Fix và Metrics)
    */
   public async generateForFile(serviceUri: any, extensionUri: any): Promise<PipelineResult | undefined> {
+    const startTime = Date.now();
     const serviceFilePath = serviceUri.fsPath;
     const serviceFileName = path.basename(serviceFilePath, path.extname(serviceFilePath));
     const requirementFilePath = RequirementFinder.findRequirementFile(serviceFilePath);
@@ -25,6 +30,7 @@ export class TestGenerationService {
     const config = this.configManager.getConfiguration();
     const llmGateway = this.configManager.createLLMGateway();
     const pipeline = new CoreGeneratorPipeline(llmGateway);
+    const autoFixEngine = new AutoFixEngine(llmGateway);
 
     // Mở preview panel ở trạng thái Loading
     const panel = TestPreviewPanel.createOrShow(extensionUri, {
@@ -41,7 +47,7 @@ export class TestGenerationService {
         `${serviceFileName}.test.ts`
       );
 
-      const result = await vscode.window.withProgress(
+      let result = await vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
           title: `[Context-Aware] Đang sinh Unit Test cho ${serviceFileName}...`,
@@ -57,6 +63,31 @@ export class TestGenerationService {
           });
         }
       );
+
+      let autoFixAttempts = 0;
+
+      // 🔄 Tự động kích hoạt Auto-Fix nếu phát hiện lỗi cú pháp
+      if (!result.processedOutput.syntaxValidation.isValid) {
+        vscode.window.showWarningMessage('⚠️ Phát hiện lỗi cú pháp trong mã test sinh ra. Đang kích hoạt Self-Reflection Auto-Fix...');
+        
+        const serviceCode = fs.existsSync(serviceFilePath) ? fs.readFileSync(serviceFilePath, 'utf-8') : '';
+        const requirementDoc = requirementFilePath && fs.existsSync(requirementFilePath) ? fs.readFileSync(requirementFilePath, 'utf-8') : undefined;
+
+        const fixResult = await autoFixEngine.autoFix({
+          serviceCode,
+          requirementDoc,
+          failedTestCode: result.processedOutput.testCode,
+          errorMessage: result.processedOutput.syntaxValidation.errors.join('\n'),
+          testFilePath: defaultOutputPath,
+          maxIterations: 2,
+        });
+
+        autoFixAttempts = fixResult.iterations;
+        if (fixResult.fixed) {
+          result.processedOutput = fixResult.processedOutput;
+          vscode.window.showInformationMessage(`✅ Auto-Fix thành công sau ${fixResult.iterations} lần lặp!`);
+        }
+      }
 
       // Cập nhật dữ liệu thật lên Webview Panel
       panel.sendData({
@@ -78,8 +109,22 @@ export class TestGenerationService {
         syntaxValid: result.processedOutput.syntaxValidation.isValid,
       });
 
+      const totalLatency = Date.now() - startTime;
+
+      // Ghi nhận chỉ số thực nghiệm
+      this.metricsCollector.recordMetric({
+        serviceName: serviceFileName,
+        provider: config.modelProvider,
+        strategy: config.promptStrategy,
+        latencyMs: totalLatency,
+        tokens: result.llmResponse.usage,
+        scenariosCount: result.processedOutput.testScenarios.length,
+        autoFixAttempts,
+        success: result.processedOutput.syntaxValidation.isValid,
+      });
+
       vscode.window.showInformationMessage(
-        `✅ Đã sinh thành công ${result.processedOutput.testScenarios.length} kịch bản test cho ${serviceFileName}!`
+        `✅ Đã sinh thành công ${result.processedOutput.testScenarios.length} kịch bản test cho ${serviceFileName} (${totalLatency}ms)!`
       );
 
       return result;
