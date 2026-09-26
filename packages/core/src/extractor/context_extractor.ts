@@ -1,8 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { PromptContext } from '../prompts/types';
-import { TypeScriptASTParser } from './ast_parser';
+import { UniversalCodeParser } from './universal_ast_parser';
 import { RequirementParser } from './requirement_parser';
+import { LanguageDetector } from './language_detector';
 import { CodeContext, ContextPayload, RequirementContext } from './types';
 
 export interface ExtractOptions {
@@ -15,16 +16,16 @@ export interface ExtractOptions {
 }
 
 export class ContextExtractor {
-  private astParser: TypeScriptASTParser;
+  private universalParser: UniversalCodeParser;
   private reqParser: RequirementParser;
 
-  constructor(astParser?: TypeScriptASTParser, reqParser?: RequirementParser) {
-    this.astParser = astParser || new TypeScriptASTParser();
+  constructor(universalParser?: UniversalCodeParser, reqParser?: RequirementParser) {
+    this.universalParser = universalParser || new UniversalCodeParser();
     this.reqParser = reqParser || new RequirementParser();
   }
 
   /**
-   * Trích xuất ngữ cảnh toàn diện từ code và tài liệu BA
+   * Trích xuất ngữ cảnh toàn diện từ code đa ngôn ngữ và tài liệu BA
    */
   public extract(options: ExtractOptions): ContextPayload {
     // 1. Đọc nội dung source code
@@ -34,7 +35,8 @@ export class ContextExtractor {
     }
 
     const fileName = options.serviceFilePath ? path.basename(options.serviceFilePath) : 'service.ts';
-    const codeContext: CodeContext = this.astParser.parseSource(rawCode, fileName);
+    const langInfo = LanguageDetector.detectLanguage(fileName);
+    const codeContext: CodeContext = this.universalParser.parse(rawCode, fileName);
 
     // 2. Đọc nội dung tài liệu BA
     let rawRequirement = options.requirementDoc || '';
@@ -63,6 +65,8 @@ export class ContextExtractor {
       requirementDoc: rawRequirement.trim().length > 0 ? rawRequirement : undefined,
       existingTestPatterns: options.existingTestPatterns,
       className: targetClassName,
+      sourceLanguage: langInfo.name,
+      testFramework: langInfo.defaultTestFramework,
     };
 
     return {
@@ -73,7 +77,7 @@ export class ContextExtractor {
         targetClassName,
         targetMethodNames,
         timestamp: new Date().toISOString(),
-        sourceLanguage: 'typescript',
+        sourceLanguage: langInfo.id,
       },
     };
   }
@@ -83,13 +87,12 @@ export class ContextExtractor {
    */
   public formatSummary(payload: ContextPayload): string {
     const lines: string[] = [];
-    lines.push(`📦 [Context Summary] Target: ${payload.metadata.targetClassName || 'Global'}`);
+    lines.push(`📦 [Context Summary] Target: ${payload.metadata.targetClassName || 'Global'} (${payload.metadata.sourceLanguage})`);
     lines.push(`🔹 Classes found: ${payload.code.classes.length}`);
     payload.code.classes.forEach((c) => {
       lines.push(`   - Class: ${c.name} (${c.methods.length} methods, ${c.properties.length} properties)`);
     });
-    lines.push(`🔹 Imports: ${payload.code.imports.length} modules`);
-    lines.push(`🔹 Types/Interfaces: ${payload.code.typeDefinitions.length} definitions`);
+    lines.push(`🔹 Functions found: ${payload.code.functions.length} standalone functions`);
 
     if (payload.requirement) {
       lines.push(`📄 Requirement: ${payload.requirement.title}`);

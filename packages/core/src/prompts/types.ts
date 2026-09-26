@@ -3,6 +3,8 @@ export interface PromptContext {
   requirementDoc?: string;
   existingTestPatterns?: string;
   className?: string;
+  sourceLanguage?: string;
+  testFramework?: string;
 }
 
 export interface PromptPayload {

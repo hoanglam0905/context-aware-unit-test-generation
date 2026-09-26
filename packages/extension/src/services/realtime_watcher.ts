@@ -1,21 +1,21 @@
-import { TypeScriptASTParser } from '../../../core/src/extractor/ast_parser';
+import { UniversalCodeParser } from '../../../core/src/extractor/universal_ast_parser';
+import { LanguageDetector } from '../../../core/src/extractor/language_detector';
 import { TestGenerationService } from './test_generation_service';
 import { vscode } from '../vscode_shim';
 
 export class RealtimeDocumentWatcher {
-  private astParser: TypeScriptASTParser;
+  private universalParser: UniversalCodeParser;
   private lastASTSignatures: Map<string, string> = new Map();
   private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(private readonly testGenService: TestGenerationService) {
-    this.astParser = new TypeScriptASTParser();
+    this.universalParser = new UniversalCodeParser();
   }
 
   /**
    * Đăng ký lắng nghe sự kiện lưu file và chỉnh sửa tài liệu
    */
   public register(context: any): void {
-    // 1. Lắng nghe khi lưu file (onDidSaveTextDocument)
     const onSaveDisposable = vscode.workspace.onDidSaveTextDocument
       ? vscode.workspace.onDidSaveTextDocument((document: any) => {
           this.handleDocumentSaved(document, context.extensionUri);
@@ -28,7 +28,7 @@ export class RealtimeDocumentWatcher {
   }
 
   /**
-   * Xử lý khi tài liệu được lưu
+   * Xử lý khi tài liệu bất kỳ ngôn ngữ nào được lưu
    */
   public handleDocumentSaved(document: any, extensionUri: any): void {
     const config = vscode.workspace.getConfiguration('contextAwareTestGen');
@@ -37,24 +37,29 @@ export class RealtimeDocumentWatcher {
 
     const filePath = document.fileName || document.uri?.fsPath || '';
 
-    // Bỏ qua nếu là file test hoặc không phải TypeScript/JavaScript
+    // Bỏ qua nếu là file test
     if (
       filePath.includes('.test.') ||
       filePath.includes('.spec.') ||
-      (!filePath.endsWith('.ts') && !filePath.endsWith('.js'))
+      filePath.includes('_test.') ||
+      filePath.includes('Test.') ||
+      filePath.includes('Tests.')
     ) {
       return;
     }
 
+    const supportedExts = LanguageDetector.getAllSupportedExtensions();
+    const isSupported = supportedExts.some((ext) => filePath.toLowerCase().endsWith(ext));
+    if (!isSupported) return;
+
     const text = document.getText ? document.getText() : '';
     if (!text.trim()) return;
 
-    // Kiểm tra xem AST method signatures có thực sự thay đổi không (AST Diff check)
+    // Kiểm tra AST Diff
     const currentSignature = this.computeASTSignature(text, filePath);
     const lastSignature = this.lastASTSignatures.get(filePath);
 
     if (lastSignature && lastSignature === currentSignature) {
-      // Chỉ thay đổi comment hoặc format, không cần sinh lại test
       return;
     }
 
@@ -69,8 +74,9 @@ export class RealtimeDocumentWatcher {
 
     const timer = setTimeout(async () => {
       this.debounceTimers.delete(filePath);
+      const langInfo = LanguageDetector.detectLanguage(filePath);
       vscode.window.showInformationMessage(
-        `⚡ [Real-time AI] Phát hiện thay đổi trong ${document.fileName?.split(/[\\/]/).pop()}. Đang tự động cập nhật Unit Test...`
+        `⚡ [Real-time ${langInfo.name}] Phát hiện thay đổi trong ${document.fileName?.split(/[\\/]/).pop()}. Đang tự động cập nhật Unit Test (${langInfo.defaultTestFramework})...`
       );
       await this.testGenService.generateForFile(document.uri || { fsPath: filePath }, extensionUri);
     }, debounceDelay);
@@ -79,11 +85,11 @@ export class RealtimeDocumentWatcher {
   }
 
   /**
-   * Tính toán hash tóm tắt cấu trúc AST (Tên class + methods + parameters) để phát hiện thay đổi logic
+   * Tính toán hash tóm tắt cấu trúc AST đa ngôn ngữ
    */
   public computeASTSignature(sourceCode: string, fileName: string): string {
     try {
-      const codeContext = this.astParser.parseSource(sourceCode, fileName);
+      const codeContext = this.universalParser.parse(sourceCode, fileName);
       const signatureParts: string[] = [];
 
       for (const cls of codeContext.classes) {

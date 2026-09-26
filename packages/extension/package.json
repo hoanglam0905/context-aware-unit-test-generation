@@ -53,14 +53,14 @@
       "editor/context": [
         {
           "command": "contextAwareTestGen.generateTest",
-          "when": "editorTextFocus && (resourceExtname == .ts || resourceExtname == .js)",
+          "when": "editorTextFocus && (resourceExtname == .ts || resourceExtname == .js || resourceExtname == .py || resourceExtname == .java || resourceExtname == .cs || resourceExtname == .go || resourceExtname == .php || resourceExtname == .cpp)",
           "group": "7_modification"
         }
       ],
       "explorer/context": [
         {
           "command": "contextAwareTestGen.generateTest",
-          "when": "resourceExtname == .ts || resourceExtname == .js",
+          "when": "resourceExtname == .ts || resourceExtname == .js || resourceExtname == .py || resourceExtname == .java || resourceExtname == .cs || resourceExtname == .go || resourceExtname == .php || resourceExtname == .cpp",
           "group": "7_modification"
         }
       ]

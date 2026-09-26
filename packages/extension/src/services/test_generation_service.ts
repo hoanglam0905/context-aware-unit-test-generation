@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import { LanguageDetector } from '../../../core/src/extractor/language_detector';
 import { CoreGeneratorPipeline } from '../../../core/src/pipeline/generator_pipeline';
 import { PipelineResult } from '../../../core/src/pipeline/types';
 import { ConfigurationManager } from './config_manager';
@@ -42,10 +43,7 @@ export class TestGenerationService {
     });
 
     try {
-      const defaultOutputPath = path.join(
-        path.dirname(serviceFilePath),
-        `${serviceFileName}.test.ts`
-      );
+      const defaultOutputPath = LanguageDetector.computeTestFilePath(serviceFilePath);
 
       let result = await vscode.window.withProgress(
         {
@@ -145,10 +143,7 @@ export class TestGenerationService {
    * Lưu file test sau khi người dùng xác nhận
    */
   public saveTestFile(serviceFilePath: string, testCode: string): string {
-    const serviceDir = path.dirname(serviceFilePath);
-    const serviceBase = path.basename(serviceFilePath, path.extname(serviceFilePath));
-    const outputPath = path.join(serviceDir, `${serviceBase}.test.ts`);
-
+    const outputPath = LanguageDetector.computeTestFilePath(serviceFilePath);
     fs.writeFileSync(outputPath, testCode, 'utf-8');
     return outputPath;
   }
