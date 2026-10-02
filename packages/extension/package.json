@@ -4,6 +4,11 @@
   "description": "Automatically generate unit tests from source code and BA requirements using LLMs",
   "version": "0.1.0",
   "publisher": "utc2-research-team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hoanglam0905/context-aware-unit-test-generation"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -21,6 +26,11 @@
     "test generation"
   ],
   "main": "./dist/packages/extension/src/extension.js",
+  "files": [
+    "dist/packages/**",
+    "media/**",
+    "README.md"
+  ],
   "activationEvents": [
     "*"
   ],
