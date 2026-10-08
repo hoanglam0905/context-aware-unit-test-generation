@@ -36,6 +36,12 @@ export function extractCodeBlock(text: string): string {
     return text.trim();
   }
 
+  // Kiểm tra nếu text là một JSON có trường "testCode" dùng backtick: "testCode": `...`
+  const backtickInText = text.match(/"testCode"\s*:\s*`([\s\S]*?)`/);
+  if (backtickInText && backtickInText[1]) {
+    return extractCodeBlock(backtickInText[1]);
+  }
+
   return text.trim();
 }
 
@@ -47,6 +53,22 @@ export function parseHybridJson(text: string): {
   testScenarios?: any[];
   reasoningSteps?: string[];
 } {
+  // 1. Kiểm tra nếu LLM dùng backtick trong JSON: "testCode": `...`
+  const backtickMatch = text.match(/"testCode"\s*:\s*`([\s\S]*?)`/);
+  if (backtickMatch && backtickMatch[1]) {
+    const rawCode = backtickMatch[1].trim();
+    const scenariosMatch = text.match(/"testScenarios"\s*:\s*(\[[\s\S]*?\])/);
+    let testScenarios: any[] = [];
+    if (scenariosMatch && scenariosMatch[1]) {
+      try { testScenarios = JSON.parse(scenariosMatch[1]); } catch {}
+    }
+    return {
+      testCode: extractCodeBlock(rawCode),
+      testScenarios,
+      reasoningSteps: [],
+    };
+  }
+
   try {
     // Tìm cụm JSON đầu tiên trong response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
