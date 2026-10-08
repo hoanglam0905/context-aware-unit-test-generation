@@ -103,8 +103,8 @@ export class OpenAICompatibleGateway implements ILLMGateway {
     while (attempts < maxAttempts) {
       attempts++;
       try {
-        // Timeout 120 giây cho Ollama / Local LLM (trên CPU), 60 giây cho Cloud API
-        const timeoutMs = this.providerName.toLowerCase().includes('ollama') ? 120000 : 60000;
+        // Timeout 5 phút (300 giây) cho Ollama / Local LLM (trên CPU), 60 giây cho Cloud API
+        const timeoutMs = this.providerName.toLowerCase().includes('ollama') ? 300000 : 60000;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -154,7 +154,7 @@ export class OpenAICompatibleGateway implements ILLMGateway {
         if (attempts >= maxAttempts) {
           const isTimeout = err.name === 'AbortError' || err.message.includes('aborted');
           if (isTimeout) {
-            const timeoutSec = this.providerName.toLowerCase().includes('ollama') ? 120 : 60;
+            const timeoutSec = this.providerName.toLowerCase().includes('ollama') ? 300 : 60;
             throw new Error(
               `Quá thời gian chờ (${this.providerName} không phản hồi sau ${timeoutSec}s). ` +
               `Nếu dùng Ollama, vui lòng kiểm tra Docker/Ollama có đang chạy không. ` +

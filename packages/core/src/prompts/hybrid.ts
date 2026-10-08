@@ -13,6 +13,7 @@ You are tasked with generating high-mutation-score Unit Tests in ${lang} using $
 2. SOURCE CODE IMPLEMENTATION (${lang} Service logic and signature).
 3. STRUCTURED REASONING (CoT matrix matching every Acceptance Criterion to at least one test case).
 
+Focus on concise reasoning (3 to 5 key test scenarios) and immediately produce the complete, runnable unit test code.
 You must output a structured JSON response matching the following schema:
 {
   "testScenarios": [
