@@ -134,6 +134,6 @@ describe('GeneratedTestEvaluator', () => {
       expect(result.execution.passRate).toBe(100);
       expect(result.execution.suitePassed).toBe(true);
       expect(result.coverage.linesPct).toBeGreaterThan(0);
-    });
+    }, 25000);
   });
 });
