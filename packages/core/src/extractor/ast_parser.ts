@@ -1,4 +1,3 @@
-import * as ts from 'typescript';
 import {
   ClassInfo,
   CodeContext,
@@ -8,60 +7,165 @@ import {
   TypeDefinitionInfo,
 } from './types';
 
+let tsModule: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  tsModule = require('typescript');
+} catch {
+  tsModule = null;
+}
+
 export class TypeScriptASTParser {
   /**
    * Phân tích mã nguồn TypeScript và trích xuất ngữ cảnh AST
    */
   public parseSource(sourceCode: string, fileName = 'service.ts'): CodeContext {
-    const sourceFile = ts.createSourceFile(
-      fileName,
-      sourceCode,
-      ts.ScriptTarget.Latest,
-      true,
-      ts.ScriptKind.TS
-    );
+    if (!tsModule) {
+      return this.parseSourceFallback(sourceCode, fileName);
+    }
 
-    const imports: ImportInfo[] = [];
+    try {
+      const sourceFile = tsModule.createSourceFile(
+        fileName,
+        sourceCode,
+        tsModule.ScriptTarget.Latest,
+        true,
+        tsModule.ScriptKind.TS
+      );
+
+      const imports: ImportInfo[] = [];
+      const classes: ClassInfo[] = [];
+      const typeDefinitions: TypeDefinitionInfo[] = [];
+      const functions: MethodInfo[] = [];
+
+      const visitNode = (node: any) => {
+        if (tsModule.isImportDeclaration(node)) {
+          const importInfo = this.extractImport(node, sourceFile);
+          if (importInfo) imports.push(importInfo);
+        } else if (tsModule.isClassDeclaration(node)) {
+          const classInfo = this.extractClass(node, sourceFile);
+          if (classInfo) classes.push(classInfo);
+        } else if (
+          tsModule.isInterfaceDeclaration(node) ||
+          tsModule.isTypeAliasDeclaration(node) ||
+          tsModule.isEnumDeclaration(node)
+        ) {
+          const typeInfo = this.extractTypeDefinition(node, sourceFile);
+          if (typeInfo) typeDefinitions.push(typeInfo);
+        } else if (tsModule.isFunctionDeclaration(node)) {
+          const funcInfo = this.extractFunction(node, sourceFile);
+          if (funcInfo) functions.push(funcInfo);
+        }
+
+        tsModule.forEachChild(node, visitNode);
+      };
+
+      visitNode(sourceFile);
+
+      return {
+        filePath: fileName,
+        classes,
+        imports,
+        typeDefinitions,
+        functions,
+        rawSourceCode: sourceCode,
+      };
+    } catch {
+      return this.parseSourceFallback(sourceCode, fileName);
+    }
+  }
+
+  /**
+   * Parser nhẹ (Regex) khi chạy trong môi trường VS Code độc lập không kèm bộ thư viện TypeScript compiler
+   */
+  private parseSourceFallback(sourceCode: string, fileName: string): CodeContext {
+    const lines = sourceCode.split(/\r?\n/);
     const classes: ClassInfo[] = [];
-    const typeDefinitions: TypeDefinitionInfo[] = [];
     const functions: MethodInfo[] = [];
 
-    const visitNode = (node: ts.Node) => {
-      if (ts.isImportDeclaration(node)) {
-        const importInfo = this.extractImport(node, sourceFile);
-        if (importInfo) imports.push(importInfo);
-      } else if (ts.isClassDeclaration(node)) {
-        const classInfo = this.extractClass(node, sourceFile);
-        if (classInfo) classes.push(classInfo);
-      } else if (
-        ts.isInterfaceDeclaration(node) ||
-        ts.isTypeAliasDeclaration(node) ||
-        ts.isEnumDeclaration(node)
-      ) {
-        const typeInfo = this.extractTypeDefinition(node, sourceFile);
-        if (typeInfo) typeDefinitions.push(typeInfo);
-      } else if (ts.isFunctionDeclaration(node)) {
-        const funcInfo = this.extractFunction(node, sourceFile);
-        if (funcInfo) functions.push(funcInfo);
+    let currentClass: ClassInfo | null = null;
+    let jsdocBuffer: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+
+      if (line.startsWith('/**') || line.startsWith('*')) {
+        jsdocBuffer.push(line.replace(/^\/\*\*|\*\/|\*\s?/g, '').trim());
+        continue;
       }
 
-      ts.forEachChild(node, visitNode);
-    };
+      // Nhận diện Class
+      const classMatch = line.match(/(?:export\s+)?(?:default\s+)?class\s+([A-Za-z0-9_]+)(?:\s+extends\s+([A-Za-z0-9_]+))?/);
+      if (classMatch) {
+        if (currentClass) classes.push(currentClass);
+        currentClass = {
+          name: classMatch[1],
+          isExported: line.includes('export'),
+          extendsClass: classMatch[2],
+          implementsInterfaces: [],
+          methods: [],
+          properties: [],
+          docComment: jsdocBuffer.length > 0 ? jsdocBuffer.join('\n') : undefined,
+        };
+        jsdocBuffer = [];
+        continue;
+      }
 
-    visitNode(sourceFile);
+      // Nhận diện Method trong Class
+      const methodMatch = line.match(/(?:(public|protected|private)\s+)?(?:(async|static)\s+)?([A-Za-z0-9_]+)\s*\((.*?)\)(?:\s*:\s*([^{]+))?\s*\{?/);
+      if (methodMatch && currentClass && !line.startsWith('//') && !line.startsWith('if') && !line.startsWith('while')) {
+        const visibility = (methodMatch[1] as any) || 'public';
+        const modifier = methodMatch[2];
+        const methodName = methodMatch[3];
+        const rawParams = methodMatch[4];
+        const returnType = methodMatch[5] ? methodMatch[5].trim() : 'any';
+
+        if (methodName !== 'if' && methodName !== 'for' && methodName !== 'switch' && methodName !== 'constructor') {
+          const parameters = this.parseSimpleParams(rawParams);
+          currentClass.methods.push({
+            name: methodName,
+            returnType,
+            parameters,
+            visibility,
+            isAsync: modifier === 'async',
+            isStatic: modifier === 'static',
+            docComment: jsdocBuffer.length > 0 ? jsdocBuffer.join('\n') : undefined,
+          });
+        }
+        jsdocBuffer = [];
+      }
+    }
+
+    if (currentClass) {
+      classes.push(currentClass);
+    }
 
     return {
       filePath: fileName,
       classes,
-      imports,
-      typeDefinitions,
+      imports: [],
+      typeDefinitions: [],
       functions,
       rawSourceCode: sourceCode,
     };
   }
 
-  private extractImport(node: ts.ImportDeclaration, sourceFile: ts.SourceFile): ImportInfo | null {
-    const moduleSpecifier = (node.moduleSpecifier as ts.StringLiteral).text;
+  private parseSimpleParams(rawParams: string): ParameterInfo[] {
+    if (!rawParams.trim()) return [];
+    return rawParams.split(',').map((p) => {
+      const parts = p.trim().split(':');
+      const name = parts[0]?.trim().replace('?', '') || 'param';
+      const type = parts[1]?.trim() || 'any';
+      return {
+        name,
+        type,
+        isOptional: p.includes('?'),
+      };
+    });
+  }
+
+  private extractImport(node: any, sourceFile: any): ImportInfo | null {
+    const moduleSpecifier = node.moduleSpecifier.text;
     const importClause = node.importClause;
 
     if (!importClause) {
@@ -77,11 +181,11 @@ export class TypeScriptASTParser {
     }
 
     if (importClause.namedBindings) {
-      if (ts.isNamedImports(importClause.namedBindings)) {
-        importClause.namedBindings.elements.forEach((elem) => {
+      if (tsModule.isNamedImports(importClause.namedBindings)) {
+        importClause.namedBindings.elements.forEach((elem: any) => {
           namedImports.push(elem.name.text);
         });
-      } else if (ts.isNamespaceImport(importClause.namedBindings)) {
+      } else if (tsModule.isNamespaceImport(importClause.namedBindings)) {
         isNamespace = true;
         namedImports.push(importClause.namedBindings.name.text);
       }
@@ -95,20 +199,20 @@ export class TypeScriptASTParser {
     };
   }
 
-  private extractClass(node: ts.ClassDeclaration, sourceFile: ts.SourceFile): ClassInfo | null {
+  private extractClass(node: any, sourceFile: any): ClassInfo | null {
     const name = node.name ? node.name.text : 'AnonymousClass';
-    const isExported = this.hasModifier(node, ts.SyntaxKind.ExportKeyword);
+    const isExported = this.hasModifier(node, tsModule.SyntaxKind.ExportKeyword);
     const docComment = this.extractJSDoc(node, sourceFile);
 
     let extendsClass: string | undefined;
     const implementsInterfaces: string[] = [];
 
     if (node.heritageClauses) {
-      node.heritageClauses.forEach((clause) => {
-        if (clause.token === ts.SyntaxKind.ExtendsKeyword) {
-          extendsClass = clause.types.map((t) => t.expression.getText(sourceFile)).join(', ');
-        } else if (clause.token === ts.SyntaxKind.ImplementsKeyword) {
-          clause.types.forEach((t) => {
+      node.heritageClauses.forEach((clause: any) => {
+        if (clause.token === tsModule.SyntaxKind.ExtendsKeyword) {
+          extendsClass = clause.types.map((t: any) => t.expression.getText(sourceFile)).join(', ');
+        } else if (clause.token === tsModule.SyntaxKind.ImplementsKeyword) {
+          clause.types.forEach((t: any) => {
             implementsInterfaces.push(t.expression.getText(sourceFile));
           });
         }
@@ -118,16 +222,16 @@ export class TypeScriptASTParser {
     const methods: MethodInfo[] = [];
     const properties: ClassInfo['properties'] = [];
 
-    node.members.forEach((member) => {
-      if (ts.isMethodDeclaration(member)) {
+    node.members.forEach((member: any) => {
+      if (tsModule.isMethodDeclaration(member)) {
         const methodInfo = this.extractMethod(member, sourceFile);
         if (methodInfo) methods.push(methodInfo);
-      } else if (ts.isPropertyDeclaration(member)) {
+      } else if (tsModule.isPropertyDeclaration(member)) {
         const propName = member.name.getText(sourceFile);
         const propType = member.type ? member.type.getText(sourceFile) : 'any';
         const visibility = this.extractVisibility(member);
-        const isStatic = this.hasModifier(member, ts.SyntaxKind.StaticKeyword);
-        const isReadonly = this.hasModifier(member, ts.SyntaxKind.ReadonlyKeyword);
+        const isStatic = this.hasModifier(member, tsModule.SyntaxKind.StaticKeyword);
+        const isReadonly = this.hasModifier(member, tsModule.SyntaxKind.ReadonlyKeyword);
 
         properties.push({
           name: propName,
@@ -150,14 +254,11 @@ export class TypeScriptASTParser {
     };
   }
 
-  private extractMethod(
-    member: ts.MethodDeclaration,
-    sourceFile: ts.SourceFile
-  ): MethodInfo | null {
+  private extractMethod(member: any, sourceFile: any): MethodInfo | null {
     const name = member.name.getText(sourceFile);
     const visibility = this.extractVisibility(member);
-    const isStatic = this.hasModifier(member, ts.SyntaxKind.StaticKeyword);
-    const isAsync = this.hasModifier(member, ts.SyntaxKind.AsyncKeyword);
+    const isStatic = this.hasModifier(member, tsModule.SyntaxKind.StaticKeyword);
+    const isAsync = this.hasModifier(member, tsModule.SyntaxKind.AsyncKeyword);
     const returnType = member.type ? member.type.getText(sourceFile) : 'any';
     const docComment = this.extractJSDoc(member, sourceFile);
     const parameters = this.extractParameters(member.parameters, sourceFile);
@@ -175,12 +276,9 @@ export class TypeScriptASTParser {
     };
   }
 
-  private extractFunction(
-    node: ts.FunctionDeclaration,
-    sourceFile: ts.SourceFile
-  ): MethodInfo | null {
+  private extractFunction(node: any, sourceFile: any): MethodInfo | null {
     const name = node.name ? node.name.text : 'anonymousFunction';
-    const isAsync = this.hasModifier(node, ts.SyntaxKind.AsyncKeyword);
+    const isAsync = this.hasModifier(node, tsModule.SyntaxKind.AsyncKeyword);
     const returnType = node.type ? node.type.getText(sourceFile) : 'any';
     const docComment = this.extractJSDoc(node, sourceFile);
     const parameters = this.extractParameters(node.parameters, sourceFile);
@@ -198,11 +296,8 @@ export class TypeScriptASTParser {
     };
   }
 
-  private extractParameters(
-    paramNodes: ts.NodeArray<ts.ParameterDeclaration>,
-    sourceFile: ts.SourceFile
-  ): ParameterInfo[] {
-    return paramNodes.map((param) => {
+  private extractParameters(paramNodes: any[], sourceFile: any): ParameterInfo[] {
+    return paramNodes.map((param: any) => {
       const name = param.name.getText(sourceFile);
       const isOptional = !!param.questionToken || !!param.initializer;
       const type = param.type ? param.type.getText(sourceFile) : 'any';
@@ -217,13 +312,10 @@ export class TypeScriptASTParser {
     });
   }
 
-  private extractTypeDefinition(
-    node: ts.InterfaceDeclaration | ts.TypeAliasDeclaration | ts.EnumDeclaration,
-    sourceFile: ts.SourceFile
-  ): TypeDefinitionInfo | null {
+  private extractTypeDefinition(node: any, sourceFile: any): TypeDefinitionInfo | null {
     let kind: 'interface' | 'type' | 'enum' = 'type';
-    if (ts.isInterfaceDeclaration(node)) kind = 'interface';
-    if (ts.isEnumDeclaration(node)) kind = 'enum';
+    if (tsModule.isInterfaceDeclaration(node)) kind = 'interface';
+    if (tsModule.isEnumDeclaration(node)) kind = 'enum';
 
     const name = node.name.text;
     const rawDefinition = node.getText(sourceFile);
@@ -235,23 +327,23 @@ export class TypeScriptASTParser {
     };
   }
 
-  private extractVisibility(node: ts.Node): 'public' | 'private' | 'protected' {
-    if (this.hasModifier(node, ts.SyntaxKind.PrivateKeyword)) return 'private';
-    if (this.hasModifier(node, ts.SyntaxKind.ProtectedKeyword)) return 'protected';
+  private extractVisibility(node: any): 'public' | 'private' | 'protected' {
+    if (this.hasModifier(node, tsModule.SyntaxKind.PrivateKeyword)) return 'private';
+    if (this.hasModifier(node, tsModule.SyntaxKind.ProtectedKeyword)) return 'protected';
     return 'public';
   }
 
-  private hasModifier(node: ts.Node, modifierKind: ts.SyntaxKind): boolean {
-    const modifiers = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
-    return !!modifiers && modifiers.some((m) => m.kind === modifierKind);
+  private hasModifier(node: any, modifierKind: any): boolean {
+    const modifiers = tsModule.canHaveModifiers(node) ? tsModule.getModifiers(node) : undefined;
+    return !!modifiers && modifiers.some((m: any) => m.kind === modifierKind);
   }
 
-  private extractJSDoc(node: ts.Node, sourceFile: ts.SourceFile): string | undefined {
+  private extractJSDoc(node: any, sourceFile: any): string | undefined {
     const fullText = sourceFile.getFullText();
-    const comments = ts.getLeadingCommentRanges(fullText, node.getFullStart());
+    const comments = tsModule.getLeadingCommentRanges(fullText, node.getFullStart());
     if (comments && comments.length > 0) {
       return comments
-        .map((c) => fullText.substring(c.pos, c.end).trim())
+        .map((c: any) => fullText.substring(c.pos, c.end).trim())
         .join('\n');
     }
     return undefined;

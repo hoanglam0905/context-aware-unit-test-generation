@@ -1,6 +1,13 @@
-import * as ts from 'typescript';
 import { extractCodeBlock, parseHybridJson } from '../llm/gateway';
 import { ProcessedTestOutput, SyntaxValidationResult } from './types';
+
+let tsModule: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  tsModule = require('typescript');
+} catch {
+  tsModule = null;
+}
 
 export class TestPostProcessor {
   /**
@@ -53,11 +60,24 @@ export class TestPostProcessor {
 
     const errors: string[] = [];
 
+    if (!tsModule) {
+      // Lightweight balance check
+      const openBraces = (code.match(/\{/g) || []).length;
+      const closeBraces = (code.match(/\}/g) || []).length;
+      if (openBraces !== closeBraces) {
+        errors.push(`Mã test không cân bằng dấu ngoặc nhọn: ${openBraces} mở vs ${closeBraces} đóng.`);
+      }
+      return {
+        isValid: errors.length === 0,
+        errors,
+      };
+    }
+
     try {
-      const transpileResult = ts.transpileModule(code, {
+      const transpileResult = tsModule.transpileModule(code, {
         compilerOptions: {
-          module: ts.ModuleKind.CommonJS,
-          target: ts.ScriptTarget.ES2020,
+          module: tsModule.ModuleKind.CommonJS,
+          target: tsModule.ScriptTarget.ES2020,
           noEmitOnError: false,
         },
         reportDiagnostics: true,
@@ -65,8 +85,8 @@ export class TestPostProcessor {
 
       if (transpileResult.diagnostics && transpileResult.diagnostics.length > 0) {
         for (const diag of transpileResult.diagnostics) {
-          if (diag.category === ts.DiagnosticCategory.Error) {
-            const message = ts.flattenDiagnosticMessageText(diag.messageText, '\n');
+          if (diag.category === tsModule.DiagnosticCategory.Error) {
+            const message = tsModule.flattenDiagnosticMessageText(diag.messageText, '\n');
             errors.push(`TS Error (${diag.code}): ${message}`);
           }
         }
