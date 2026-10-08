@@ -65,14 +65,15 @@ export class OpenAICompatibleGateway implements ILLMGateway {
   public async generate(systemPrompt: string, userPrompt: string): Promise<LLMResponse> {
     const startTime = Date.now();
     let attempts = 0;
-    const maxAttempts = 3;
+    const maxAttempts = 1;
 
     while (attempts < maxAttempts) {
       attempts++;
       try {
-        // Cấu hình timeout 10 phút để CPU máy cá nhân có đủ thời gian sinh code
+        // Timeout 120 giây cho Ollama / Local LLM (trên CPU), 60 giây cho Cloud API
+        const timeoutMs = this.providerName.toLowerCase().includes('ollama') ? 120000 : 60000;
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 600000);
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
         const response = await fetch(`${this.baseUrl}/chat/completions`, {
           method: 'POST',
@@ -118,10 +119,19 @@ export class OpenAICompatibleGateway implements ILLMGateway {
         };
       } catch (err: any) {
         if (attempts >= maxAttempts) {
+          const isTimeout = err.name === 'AbortError' || err.message.includes('aborted');
+          if (isTimeout) {
+            const timeoutSec = this.providerName.toLowerCase().includes('ollama') ? 120 : 60;
+            throw new Error(
+              `Quá thời gian chờ (${this.providerName} không phản hồi sau ${timeoutSec}s). ` +
+              `Nếu dùng Ollama, vui lòng kiểm tra Docker/Ollama có đang chạy không. ` +
+              `Hoặc chuyển Model Provider sang "gemini" trong Cài đặt để sinh siêu nhanh (2s).`
+            );
+          }
           throw err;
         }
         console.log(`    ⚠️ [${this.providerName}] Kết nối bị gián đoạn (${err.message}). Đang thử lại lần ${attempts + 1}/${maxAttempts}...`);
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 1000));
       }
     }
 
