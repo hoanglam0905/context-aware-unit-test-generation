@@ -4,18 +4,35 @@ import { ILLMGateway, LLMResponse } from './types';
  * Trích xuất code block ```typescript ... ``` từ chuỗi văn bản
  */
 export function extractCodeBlock(text: string): string {
-  const tsMatch = text.match(/```(?:typescript|ts)\s*([\s\S]*?)```/i);
-  if (tsMatch && tsMatch[1]) {
-    return tsMatch[1].trim();
+  // 1. Tìm code block markdown có định danh ngôn ngữ bất kỳ (ví dụ: ```go, ```python, ```java, ```csharp, ```typescript)
+  const typedMatch = text.match(/```(?:[a-zA-Z0-9_+#.-]+)?\s*\n([\s\S]*?)```/);
+  if (typedMatch && typedMatch[1]) {
+    const candidate = typedMatch[1].trim();
+    if (candidate.length > 0 && !candidate.startsWith('// Complete, runnable') && !candidate.startsWith('PUT_ACTUAL')) {
+      return candidate;
+    }
   }
 
+  // 2. Generic code block ``` ... ```
   const genericMatch = text.match(/```\s*([\s\S]*?)```/);
   if (genericMatch && genericMatch[1]) {
-    return genericMatch[1].trim();
+    const candidate = genericMatch[1].trim();
+    if (candidate.length > 0 && !candidate.startsWith('// Complete, runnable') && !candidate.startsWith('PUT_ACTUAL')) {
+      return candidate;
+    }
   }
 
-  // Nếu không có markdown ticks, kiểm tra xem có phải trực tiếp mã TypeScript không
-  if (text.includes('describe(') || text.includes('it(') || text.includes('import ')) {
+  // 3. Nếu không có markdown ticks, kiểm tra xem có phải trực tiếp mã nguồn không
+  if (
+    text.includes('package ') ||
+    text.includes('func Test') ||
+    text.includes('def test_') ||
+    text.includes('@Test') ||
+    text.includes('[Fact]') ||
+    text.includes('describe(') ||
+    text.includes('it(') ||
+    text.includes('import ')
+  ) {
     return text.trim();
   }
 
@@ -35,8 +52,24 @@ export function parseHybridJson(text: string): {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
+      let extractedCode = parsed.testCode ? extractCodeBlock(parsed.testCode) : '';
+
+      // Fallback: nếu testCode là placeholder comment hoặc quá ngắn, tìm markdown code block trong text gốc
+      const isPlaceholder = !extractedCode ||
+        extractedCode.startsWith('// Complete, runnable') ||
+        extractedCode.startsWith('PUT_ACTUAL') ||
+        extractedCode.includes('// Complete, runnable test file') ||
+        extractedCode.length < 50;
+
+      if (isPlaceholder) {
+        const fromMarkdown = extractCodeBlock(text);
+        if (fromMarkdown && fromMarkdown.length > 50 && !fromMarkdown.includes('// Complete, runnable test file')) {
+          extractedCode = fromMarkdown;
+        }
+      }
+
       return {
-        testCode: extractCodeBlock(parsed.testCode || ''),
+        testCode: extractedCode,
         testScenarios: parsed.testScenarios || [],
         reasoningSteps: parsed.reasoningSteps || [],
       };

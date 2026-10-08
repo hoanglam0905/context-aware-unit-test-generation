@@ -13,7 +13,7 @@ You are tasked with generating high-mutation-score Unit Tests in ${lang} using $
 2. SOURCE CODE IMPLEMENTATION (${lang} Service logic and signature).
 3. STRUCTURED REASONING (CoT matrix matching every Acceptance Criterion to at least one test case).
 
-You must output a structured JSON response matching the following schema exactly:
+You must output a structured JSON response matching the following schema:
 {
   "testScenarios": [
     {
@@ -28,7 +28,7 @@ You must output a structured JSON response matching the following schema exactly
     "Step 1: Analyzed BA business rules...",
     "Step 2: Mapped to source code branches..."
   ],
-  "testCode": "// Complete, runnable test file in ${lang} using ${framework}"
+  "testCode": "PUT_ACTUAL_FULL_EXECUTABLE_TEST_CODE_HERE"
 }`;
 
     const userPrompt = `### 1. BUSINESS REQUIREMENT SPECIFICATION (from Business Analyst):
@@ -46,7 +46,8 @@ ${context.serviceCode}
 ### INSTRUCTIONS:
 1. Cross-reference every Business Rule and Gherkin Acceptance Criterion with the source code.
 2. Formulate explicit test scenarios covering edge cases mentioned in the BA document (e.g., specific discounts, retry limits, lockout counts, boundary values).
-3. Return the complete result in the requested JSON format. Ensure the "testCode" property contains valid, non-truncated, complete test code in ${lang} using ${framework}.`;
+3. Return the complete result in JSON format (or a JSON block followed by a \`\`\`${lang.toLowerCase()} code block).
+4. CRITICAL: The "testCode" MUST contain the REAL, FULL, EXECUTABLE unit test code in ${lang} using ${framework}. NEVER output placeholder comments like "// Complete, runnable test file" or "// TODO". You MUST write actual imports, test suites, test cases, and assertions!`;
 
     return {
       systemPrompt,
