@@ -28,14 +28,10 @@ export function activate(context: any): void {
       'php',
       'cpp',
     ];
-    for (const lang of supportedLanguages) {
-      context.subscriptions.push(
-        vscode.languages.registerCodeLensProvider(
-          { language: lang, scheme: 'file' },
-          codeLensProvider
-        )
-      );
-    }
+    const selectors = supportedLanguages.map((lang) => ({ language: lang }));
+    context.subscriptions.push(
+      vscode.languages.registerCodeLensProvider(selectors, codeLensProvider)
+    );
   }
 
   // 3. Đăng ký Sidebar Provider

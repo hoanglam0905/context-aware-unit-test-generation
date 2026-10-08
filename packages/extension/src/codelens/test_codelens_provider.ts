@@ -15,7 +15,7 @@ export class ContextAwareCodeLensProvider {
   public provideCodeLenses(document: any, _token: any): any[] {
     const config = vscode.workspace.getConfiguration('contextAwareTestGen');
     const isEnabled = config.get('enableCodeLens', true);
-    if (!isEnabled) return [];
+    if (isEnabled === false) return [];
 
     const text = document.getText ? document.getText() : '';
     const fileName = document.fileName || 'service.ts';
