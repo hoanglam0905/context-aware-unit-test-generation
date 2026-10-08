@@ -1,7 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
-// @ts-ignore: runCLI from jest
-import { runCLI } from 'jest';
+
+let runCLI: any = null;
+try {
+  runCLI = require('jest').runCLI;
+} catch {
+  runCLI = null;
+}
 import { CodeMutatorGenerator } from './mutators';
 import { Mutant, MutantStatus, MutantTestResult, MutationSummary } from './types';
 

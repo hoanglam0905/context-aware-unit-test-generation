@@ -1,9 +1,31 @@
-import * as dotenv from 'dotenv';
 import * as path from 'path';
 import * as fs from 'fs';
 import { GeminiGateway, OpenAICompatibleGateway, ILLMGateway } from '../../../core/src/llm';
 import { ExtensionConfiguration } from '../types';
 import { vscode } from '../vscode_shim';
+
+let dotenv: any = null;
+try {
+  dotenv = require('dotenv');
+} catch {
+  dotenv = null;
+}
+
+function parseSimpleEnv(content: string): void {
+  const lines = content.split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx > 0) {
+      const key = trimmed.slice(0, eqIdx).trim();
+      const val = trimmed.slice(eqIdx + 1).trim().replace(/^['"]|['"]$/g, '');
+      if (!process.env[key]) {
+        process.env[key] = val;
+      }
+    }
+  }
+}
 
 export class ConfigurationManager {
   private static instance: ConfigurationManager;
@@ -28,13 +50,21 @@ export class ConfigurationManager {
       const rootPath = workspaceFolders[0].uri.fsPath;
       const envPath = path.join(rootPath, '.env');
       if (fs.existsSync(envPath)) {
-        dotenv.config({ path: envPath });
+        if (dotenv && dotenv.config) {
+          dotenv.config({ path: envPath });
+        } else {
+          parseSimpleEnv(fs.readFileSync(envPath, 'utf-8'));
+        }
       }
     }
     // Fallback load cwd .env
     const cwdEnv = path.resolve(process.cwd(), '.env');
     if (fs.existsSync(cwdEnv)) {
-      dotenv.config({ path: cwdEnv });
+      if (dotenv && dotenv.config) {
+        dotenv.config({ path: cwdEnv });
+      } else {
+        parseSimpleEnv(fs.readFileSync(cwdEnv, 'utf-8'));
+      }
     }
   }
 

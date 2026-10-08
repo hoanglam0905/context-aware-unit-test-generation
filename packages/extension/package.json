@@ -32,6 +32,18 @@
     "README.md"
   ],
   "activationEvents": [
+    "onCommand:contextAwareTestGen.generateTest",
+    "onCommand:contextAwareTestGen.generateTestForMethod",
+    "onCommand:contextAwareTestGen.openSettings",
+    "onCommand:contextAwareTestGen.openSidebar",
+    "onLanguage:typescript",
+    "onLanguage:javascript",
+    "onLanguage:python",
+    "onLanguage:java",
+    "onLanguage:csharp",
+    "onLanguage:go",
+    "onLanguage:php",
+    "onLanguage:cpp",
     "*"
   ],
   "contributes": {
@@ -143,9 +155,12 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./"
   },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "typescript": "^5.3.3"
+  },
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "@types/vscode": "^1.85.0",
-    "typescript": "^5.3.3"
+    "@types/vscode": "^1.85.0"
   }
 }
