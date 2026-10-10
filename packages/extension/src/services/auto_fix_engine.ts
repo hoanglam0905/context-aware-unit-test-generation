@@ -1,7 +1,9 @@
 import { ILLMGateway } from '../../../core/src/llm/types';
 import { TestPostProcessor } from '../../../core/src/pipeline/post_processor';
 import { CoverageRunner } from '../../../core/src/pipeline/coverage_runner';
-import { ProcessedTestOutput } from '../../../core/src/pipeline/types';
+import { ProcessedTestOutput, TestExecutionSummary } from '../../../core/src/pipeline/types';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export interface AutoFixRequest {
   serviceCode: string;
@@ -9,6 +11,7 @@ export interface AutoFixRequest {
   failedTestCode: string;
   errorMessage: string;
   testFilePath?: string;
+  serviceFilePath?: string;
   maxIterations?: number;
 }
 
@@ -17,6 +20,7 @@ export interface AutoFixResult {
   finalTestCode: string;
   processedOutput: ProcessedTestOutput;
   iterations: number;
+  execution?: TestExecutionSummary;
   fixHistory: Array<{
     iteration: number;
     errorSummary: string;
@@ -52,8 +56,9 @@ export class AutoFixEngine {
       const iterStartTime = Date.now();
 
       // Xây dựng Reflection Prompt cho LLM
-      const systemPrompt = `Bạn là một Chuyên gia Kiểm thử Phần mềm Tự động (Automated QA / Test Repair Expert).
-Nhiệm vụ của bạn là phân tích lỗi biên dịch hoặc lỗi assertion của file test và sửa lại mã TypeScript/Jest để kiểm thử pass 100%.
+      const systemPrompt = `Bạn là một Chuyên gia Sửa lỗi Kiểm thử Phần mềm (Automated QA / Test Repair Expert).
+Nhiệm vụ của bạn là phân tích nguyên nhân lỗi biên dịch hoặc lỗi assertion của mã test và sửa lại mã TypeScript/Jest để kiểm thử pass 100%.
+BẢO TOÀN CHẤT LƯỢNG TEST: Giữ nguyên các kịch bản kiểm thử nghiệp vụ, boundary case và assertion quan trọng; tuyệt đối KHÔNG xoá bỏ test case hoặc làm yếu assertion (không đổi expect(val).toBe(x) thành toBeDefined() vô nghĩa).
 Chỉ trả về mã test TypeScript hoàn chỉnh trong codeblock \`\`\`typescript ... \`\`\`. Không giải thích lan man.`;
 
       const userPrompt = `### MÃ NGUỒN SERVICE GỐC:
@@ -88,26 +93,55 @@ Hãy phân tích nguyên nhân lỗi và sinh lại file mã kiểm thử hoàn 
 
       // Nếu cú pháp hợp lệ
       if (processedOutput.syntaxValidation.isValid) {
-        // Nếu có đường dẫn file test và coverage runner, thử chạy lại để verify trong sandbox
-        if (request.testFilePath) {
-          const fs = require('fs');
-          const path = require('path');
-          const sandboxDir = path.resolve(process.cwd(), '.autofix_sandbox');
-          if (!fs.existsSync(sandboxDir)) {
-            fs.mkdirSync(sandboxDir, { recursive: true });
-          }
-          const sandboxTestPath = path.join(sandboxDir, 'autofix.test.ts');
-          let runResult;
-          try {
+        // Chạy kiểm tra thực thi nếu có đường dẫn test hoặc service
+        if (request.testFilePath || request.serviceFilePath) {
+          let sandboxTestPath: string;
+          let isIsolatedDir = false;
+          let tempSandboxDir = '';
+
+          const refDir = request.testFilePath
+            ? path.dirname(request.testFilePath)
+            : request.serviceFilePath
+              ? path.dirname(request.serviceFilePath)
+              : undefined;
+
+          if (refDir && fs.existsSync(refDir)) {
+            // Đặt file tạm cùng thư mục để bảo toàn cấu trúc import tương đối (./service)
+            sandboxTestPath = path.join(
+              refDir,
+              `.temp_autofix_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.test.ts`
+            );
             fs.writeFileSync(sandboxTestPath, currentTestCode, 'utf-8');
-            runResult = await this.coverageRunner.executeTest(sandboxTestPath);
+          } else {
+            // Tạo sandbox tạm biệt lập và copy service vào sandbox
+            isIsolatedDir = true;
+            tempSandboxDir = path.resolve(process.cwd(), `.autofix_sandbox_${Date.now()}`);
+            fs.mkdirSync(tempSandboxDir, { recursive: true });
+            sandboxTestPath = path.join(tempSandboxDir, 'autofix.test.ts');
+            fs.writeFileSync(sandboxTestPath, currentTestCode, 'utf-8');
+
+            const serviceFileName = request.serviceFilePath ? path.basename(request.serviceFilePath) : 'service.ts';
+            const serviceDest = path.join(tempSandboxDir, serviceFileName);
+            if (request.serviceFilePath && fs.existsSync(request.serviceFilePath)) {
+              fs.copyFileSync(request.serviceFilePath, serviceDest);
+            } else if (request.serviceCode) {
+              fs.writeFileSync(serviceDest, request.serviceCode, 'utf-8');
+            }
+          }
+
+          let runResult: TestExecutionSummary;
+          try {
+            runResult = await this.coverageRunner.executeTest(sandboxTestPath, request.serviceFilePath);
           } finally {
-            if (fs.existsSync(sandboxDir)) {
+            if (fs.existsSync(sandboxTestPath)) {
               try {
-                fs.rmSync(sandboxDir, { recursive: true, force: true });
-              } catch {
-                // Ignore cleanup errors
-              }
+                fs.unlinkSync(sandboxTestPath);
+              } catch {}
+            }
+            if (isIsolatedDir && fs.existsSync(tempSandboxDir)) {
+              try {
+                fs.rmSync(tempSandboxDir, { recursive: true, force: true });
+              } catch {}
             }
           }
 
@@ -117,14 +151,16 @@ Hãy phân tích nguyên nhân lỗi và sinh lại file mã kiểm thử hoàn 
               finalTestCode: currentTestCode,
               processedOutput,
               iterations: iter,
+              execution: runResult,
               fixHistory,
             };
           } else {
-            currentError = runResult.errorMessage || 'Assertion failed';
+            currentError = runResult.errorMessage || 'Test suite assertions failed during execution';
             continue;
           }
         }
 
+        // Không có runner context, chỉ kiểm tra được syntax
         return {
           fixed: true,
           finalTestCode: currentTestCode,
@@ -138,7 +174,7 @@ Hãy phân tích nguyên nhân lỗi và sinh lại file mã kiểm thử hoàn 
     }
 
     return {
-      fixed: processedOutput.syntaxValidation.isValid,
+      fixed: false,
       finalTestCode: currentTestCode,
       processedOutput,
       iterations: maxIterations,

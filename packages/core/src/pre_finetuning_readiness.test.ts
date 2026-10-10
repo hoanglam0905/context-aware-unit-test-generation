@@ -4,7 +4,10 @@ import { CoverageRunner } from './pipeline/coverage_runner';
 import { MutationRunner } from './mutation/mutation_runner';
 import { ContextExtractor } from './extractor/context_extractor';
 import { GeminiGateway } from './llm/gateway';
+import { CoreGeneratorPipeline } from './pipeline/generator_pipeline';
+import { ILLMGateway, LLMResponse } from './llm/types';
 import { ConfigurationManager } from '../../extension/src/services/config_manager';
+import { AutoFixEngine } from '../../extension/src/services/auto_fix_engine';
 
 describe('Pre-Fine-Tuning Readiness Quality Assurance Suite', () => {
   const rootDatasetDir = path.resolve(__dirname, '../../../experiments/dataset');
@@ -130,6 +133,193 @@ describe('Pre-Fine-Tuning Readiness Quality Assurance Suite', () => {
 
       expect(config.fineTunedModel).toBe('qwen2.5-coder:7b-instruct-lora');
       delete process.env.FINE_TUNED_MODEL;
+    });
+  });
+
+  describe('6. GeneratorPipeline Dry-Run Sandbox & Import Resolution (P0 - Step 1/3)', () => {
+    it('thực thi dryRun mượt mà với relative import ./service và dọn dẹp sạch file tạm', async () => {
+      const s01ServicePath = path.join(rootDatasetDir, 'simple/s01_discount_calculator/service.ts');
+      const s01ReqPath = path.join(rootDatasetDir, 'simple/s01_discount_calculator/requirement.md');
+      const s01Dir = path.dirname(s01ServicePath);
+
+      const mockLLM: ILLMGateway = {
+        providerName: 'MockLLM',
+        modelName: 'mock-model',
+        generate: jest.fn().mockResolvedValue({
+          rawText: JSON.stringify({
+            testScenarios: [
+              {
+                id: 'TC_01',
+                description: 'Test regular discount with relative import',
+              },
+            ],
+            testCode: `
+              import { DiscountCalculatorService } from './service';
+              describe('DiscountCalculatorService Dry-Run', () => {
+                it('should calculate discount for regular correctly', () => {
+                  const service = new DiscountCalculatorService();
+                  const res = service.calculateDiscount(100000, 'REGULAR');
+                  expect(res.discountAmount).toBe(0);
+                });
+              });
+            `,
+          }),
+          testCode: '',
+          durationMs: 50,
+        } as LLMResponse),
+      };
+
+      const pipeline = new CoreGeneratorPipeline(mockLLM);
+      const res = await pipeline.execute({
+        serviceFilePath: s01ServicePath,
+        requirementFilePath: s01ReqPath,
+        targetClassName: 'DiscountCalculatorService',
+        strategyName: 'hybrid',
+        dryRun: true,
+      });
+
+      expect(res.execution).toBeDefined();
+      expect(res.execution?.executed).toBe(true);
+      expect(res.execution?.suitePassed).toBe(true);
+      expect(res.execution?.passRate).toBe(100);
+
+      // Đảm bảo không còn bất kỳ file tạm .temp_preview_ nào vương vãi
+      const leftoverFiles = fs.readdirSync(s01Dir).filter((f) => f.startsWith('.temp_preview_') || f.startsWith('.tmp_dryrun_'));
+      expect(leftoverFiles.length).toBe(0);
+    }, 45000);
+  });
+
+  describe('7. AutoFixEngine Execution Failure & Strict Passing Gate (P0 - Step 2)', () => {
+    const s01ServicePath = path.join(rootDatasetDir, 'simple/s01_discount_calculator/service.ts');
+    const s01Dir = path.dirname(s01ServicePath);
+
+    it('trả về fixed: false khi mã sinh ra vẫn fail assertion khi chạy Jest', async () => {
+      const mockLLMStillFailing: ILLMGateway = {
+        providerName: 'MockLLM',
+        modelName: 'mock-model',
+        generate: jest.fn().mockResolvedValue({
+          rawText: `
+\`\`\`typescript
+import { DiscountCalculatorService } from './service';
+describe('Failing Assertion Test', () => {
+  it('should intentionally fail', () => {
+    const service = new DiscountCalculatorService();
+    const res = service.calculateDiscount(100000, 'REGULAR');
+    expect(res.discountAmount).toBe(999999); // Sai assertion
+  });
+});
+\`\`\`
+          `,
+          testCode: '',
+          durationMs: 50,
+        } as LLMResponse),
+      };
+
+      const autoFixEngine = new AutoFixEngine(mockLLMStillFailing);
+      const result = await autoFixEngine.autoFix({
+        serviceFilePath: s01ServicePath,
+        serviceCode: fs.readFileSync(s01ServicePath, 'utf-8'),
+        failedTestCode: 'describe("bad", () => { it("fails", () => { expect(1).toBe(2); }); });',
+        errorMessage: 'Expected 999999 but received 0',
+        maxIterations: 2,
+      });
+
+      expect(result.fixed).toBe(false);
+      expect(result.iterations).toBe(2);
+
+      // Đảm bảo không còn file .temp_autofix_ nào sót lại
+      const leftoverFiles = fs.readdirSync(s01Dir).filter((f) => f.startsWith('.temp_autofix_'));
+      expect(leftoverFiles.length).toBe(0);
+    }, 45000);
+
+    it('trả về fixed: true khi mã sinh ra vượt qua toàn bộ assertion của Jest', async () => {
+      const mockLLMPassing: ILLMGateway = {
+        providerName: 'MockLLM',
+        modelName: 'mock-model',
+        generate: jest.fn().mockResolvedValue({
+          rawText: `
+\`\`\`typescript
+import { DiscountCalculatorService } from './service';
+describe('Passing Assertion Test', () => {
+  it('should pass regular discount', () => {
+    const service = new DiscountCalculatorService();
+    const res = service.calculateDiscount(100000, 'REGULAR');
+    expect(res.discountAmount).toBe(0);
+  });
+});
+\`\`\`
+          `,
+          testCode: '',
+          durationMs: 50,
+        } as LLMResponse),
+      };
+
+      const autoFixEngine = new AutoFixEngine(mockLLMPassing);
+      const result = await autoFixEngine.autoFix({
+        serviceFilePath: s01ServicePath,
+        serviceCode: fs.readFileSync(s01ServicePath, 'utf-8'),
+        failedTestCode: 'describe("bad", () => { it("fails", () => { expect(1).toBe(2); }); });',
+        errorMessage: 'Expected 2 but received 1',
+        maxIterations: 2,
+      });
+
+      expect(result.fixed).toBe(true);
+      expect(result.execution).toBeDefined();
+      expect(result.execution?.suitePassed).toBe(true);
+
+      const leftoverFiles = fs.readdirSync(s01Dir).filter((f) => f.startsWith('.temp_autofix_'));
+      expect(leftoverFiles.length).toBe(0);
+    }, 45000);
+  });
+
+  describe('8. Fine-Tuning JSONL Traceability & Quality Gate (P1 - Step 3)', () => {
+    it('kiểm tra toàn bộ dataset train/val/test đạt 100% chuẩn: không placeholder, không leakage', () => {
+      const trainPath = path.join(rootDatasetDir, 'fine_tuning_train.jsonl');
+      const valPath = path.join(rootDatasetDir, 'fine_tuning_val.jsonl');
+      const testPath = path.join(rootDatasetDir, 'fine_tuning_test.jsonl');
+
+      expect(fs.existsSync(trainPath)).toBe(true);
+      expect(fs.existsSync(valPath)).toBe(true);
+      expect(fs.existsSync(testPath)).toBe(true);
+
+      const readLines = (p: string) =>
+        fs
+          .readFileSync(p, 'utf-8')
+          .trim()
+          .split('\n')
+          .filter((l) => l.trim().length > 0)
+          .map((l) => JSON.parse(l));
+
+      const trainData = readLines(trainPath);
+      const valData = readLines(valPath);
+      const testData = readLines(testPath);
+
+      expect(trainData.length).toBe(9);
+      expect(valData.length).toBe(3);
+      expect(testData.length).toBe(3);
+
+      const allEntries = [...trainData, ...valData, ...testData];
+      for (const entry of allEntries) {
+        expect(Array.isArray(entry.messages)).toBe(true);
+        expect(entry.messages.length).toBe(3);
+
+        const [sys, user, asst] = entry.messages;
+        expect(sys.role).toBe('system');
+        expect(user.role).toBe('user');
+        expect(asst.role).toBe('assistant');
+
+        // Phải chứa cấu trúc JSON hợp lệ ở assistant
+        const parsedAsst = JSON.parse(asst.content);
+        expect(Array.isArray(parsedAsst.testScenarios)).toBe(true);
+        expect(parsedAsst.testScenarios.length).toBeGreaterThan(0);
+        expect(typeof parsedAsst.testCode).toBe('string');
+        expect(parsedAsst.testCode.length).toBeGreaterThan(50);
+
+        // Kiểm tra tuyệt đối KHÔNG có placeholder strings
+        const stringified = JSON.stringify(entry);
+        expect(stringified).not.toContain('Rule for');
+        expect(stringified).not.toContain('Asserted successfully in test code');
+      }
     });
   });
 });

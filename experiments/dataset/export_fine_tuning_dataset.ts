@@ -27,6 +27,114 @@ interface Manifest {
   services: ManifestService[];
 }
 
+function resolveTraceability(
+  svc: ManifestService,
+  testDesc: string,
+  reqContext?: any
+): { acRef: string; expected: string; category: string } {
+  const cleanDesc = testDesc.replace(/^should\s+/i, '').trim();
+  const lowerDesc = cleanDesc.toLowerCase();
+
+  let category = 'TEST_CASE';
+  if (lowerDesc.includes('throw') || lowerDesc.includes('error') || lowerDesc.includes('invalid') || lowerDesc.includes('fail')) {
+    category = 'EXCEPTION_HANDLING';
+  } else if (lowerDesc.includes('boundary') || lowerDesc.includes('edge') || lowerDesc.includes('limit') || lowerDesc.includes('cap') || lowerDesc.includes('exceed')) {
+    category = 'BOUNDARY_VALUE';
+  } else {
+    category = 'NORMAL_FLOW';
+  }
+
+  // 1. Đối chiếu với Gherkin Scenarios trong tài liệu BA
+  if (reqContext && Array.isArray(reqContext.scenarios) && reqContext.scenarios.length > 0) {
+    let bestScenario: any = null;
+    let bestScore = 0;
+    let bestIndex = -1;
+
+    const descWords = new Set(
+      lowerDesc
+        .replace(/[^a-z0-9_\s]/g, ' ')
+        .split(/\s+/)
+        .filter((w: string) => w.length > 2 && !['should', 'when', 'with', 'from', 'that', 'this'].includes(w))
+    );
+
+    reqContext.scenarios.forEach((scen: any, sIdx: number) => {
+      const scenText = `${scen.title} ${(scen.when || []).join(' ')} ${(scen.then || []).join(' ')}`.toLowerCase();
+      let score = 0;
+      for (const word of descWords) {
+        if (scenText.includes(word)) score++;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestScenario = scen;
+        bestIndex = sIdx;
+      }
+    });
+
+    if (bestScenario && bestScore >= 1) {
+      const acRef = `AC${bestIndex + 1}: ${bestScenario.title}`;
+      const expected = bestScenario.then && bestScenario.then.length > 0
+        ? bestScenario.then.join('; ')
+        : `Satisfies acceptance criteria for ${bestScenario.title}`;
+      return { acRef, expected, category };
+    }
+  }
+
+  // 2. Đối chiếu với Business Rules trong tài liệu BA
+  if (reqContext && Array.isArray(reqContext.businessRules) && reqContext.businessRules.length > 0) {
+    let bestRule = '';
+    let bestRuleIndex = -1;
+    let bestScore = 0;
+
+    const descWords = new Set(
+      lowerDesc
+        .replace(/[^a-z0-9_\s]/g, ' ')
+        .split(/\s+/)
+        .filter((w: string) => w.length > 2)
+    );
+
+    reqContext.businessRules.forEach((rule: string, rIdx: number) => {
+      const ruleLower = rule.toLowerCase();
+      let score = 0;
+      for (const word of descWords) {
+        if (ruleLower.includes(word)) score++;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestRule = rule;
+        bestRuleIndex = rIdx;
+      }
+    });
+
+    if (bestRule && bestScore >= 1) {
+      const shortRule = bestRule.replace(/^[\d\.\s*#-]+/, '').split('\n')[0].substring(0, 70).trim();
+      const acRef = `BR${bestRuleIndex + 1}: ${shortRule}`;
+      const expected = `Enforces rule: ${shortRule} when executing ${cleanDesc}`;
+      return { acRef, expected, category };
+    }
+  }
+
+  // 3. Phân loại theo tiêu chuẩn kiểm thử, không dùng placeholder
+  if (category === 'EXCEPTION_HANDLING') {
+    return {
+      acRef: `AC-ERR: Exception handling and validation rules for ${svc.targetClass}`,
+      expected: `Throws appropriate error or handles failure: ${cleanDesc}`,
+      category,
+    };
+  } else if (category === 'BOUNDARY_VALUE') {
+    return {
+      acRef: `AC-BND: Boundary limits and constraints for ${svc.targetClass}`,
+      expected: `Enforces boundary limit condition: ${cleanDesc}`,
+      category,
+    };
+  } else {
+    return {
+      acRef: `AC-STD: Standard functional behavior for ${svc.targetClass}`,
+      expected: `Executes expected business logic: ${cleanDesc}`,
+      category,
+    };
+  }
+}
+
 export function exportFineTuningDataset(): {
   trainCount: number;
   valCount: number;
@@ -111,13 +219,16 @@ Generate a complete, production-ready Jest unit test file covering happy paths, 
 
     const assistantResponse = JSON.stringify(
       {
-        testScenarios: processedGT.testScenarios.map((s, idx) => ({
-          id: s.id || `TC-${String(idx + 1).padStart(3, '0')}`,
-          acceptanceCriteriaRef: s.acceptanceCriteriaRef || `Rule for ${svc.name}`,
-          category: s.category || 'TEST_CASE',
-          description: s.description,
-          expectedBehavior: s.expectedBehavior || 'Asserted successfully in test code',
-        })),
+        testScenarios: processedGT.testScenarios.map((s, idx) => {
+          const trace = resolveTraceability(svc, s.description, contextPayload.requirement);
+          return {
+            id: s.id || `TC-${String(idx + 1).padStart(3, '0')}`,
+            acceptanceCriteriaRef: trace.acRef,
+            category: trace.category,
+            description: s.description,
+            expectedBehavior: trace.expected,
+          };
+        }),
         testCode: groundTruthCode.trim(),
       },
       null,

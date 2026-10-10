@@ -70,25 +70,36 @@ export class TestGenerationService {
 
       let autoFixAttempts = 0;
 
-      // 🔄 Tự động kích hoạt Auto-Fix nếu phát hiện lỗi cú pháp
-      if (!result.processedOutput.syntaxValidation.isValid) {
-        vscode.window.showWarningMessage('⚠️ Phát hiện lỗi cú pháp trong mã test sinh ra. Đang kích hoạt Self-Reflection Auto-Fix...');
+      // 🔄 Tự động kích hoạt Auto-Fix nếu phát hiện lỗi cú pháp HOẶC lỗi assertion khi chạy
+      const hasSyntaxError = !result.processedOutput.syntaxValidation.isValid;
+      const hasExecutionFailure = !!(result.execution && !result.execution.suitePassed && result.execution.executed);
+
+      if (hasSyntaxError || hasExecutionFailure) {
+        const errorType = hasSyntaxError ? 'cú pháp' : 'thực thi/assertion';
+        vscode.window.showWarningMessage(`⚠️ Phát hiện lỗi ${errorType} trong mã test sinh ra. Đang kích hoạt Self-Reflection Auto-Fix...`);
         
         const serviceCode = fs.existsSync(serviceFilePath) ? fs.readFileSync(serviceFilePath, 'utf-8') : '';
         const requirementDoc = requirementFilePath && fs.existsSync(requirementFilePath) ? fs.readFileSync(requirementFilePath, 'utf-8') : undefined;
+        const initialError = hasSyntaxError
+          ? result.processedOutput.syntaxValidation.errors.join('\n')
+          : result.execution?.errorMessage || 'Test suite assertion failed';
 
         const fixResult = await autoFixEngine.autoFix({
           serviceCode,
           requirementDoc,
           failedTestCode: result.processedOutput.testCode,
-          errorMessage: result.processedOutput.syntaxValidation.errors.join('\n'),
+          errorMessage: initialError,
           testFilePath: defaultOutputPath,
+          serviceFilePath,
           maxIterations: 2,
         });
 
         autoFixAttempts = fixResult.iterations;
         if (fixResult.fixed) {
           result.processedOutput = fixResult.processedOutput;
+          if (fixResult.execution) {
+            result.execution = fixResult.execution;
+          }
           vscode.window.showInformationMessage(`✅ Auto-Fix thành công sau ${fixResult.iterations} lần lặp!`);
         }
       }

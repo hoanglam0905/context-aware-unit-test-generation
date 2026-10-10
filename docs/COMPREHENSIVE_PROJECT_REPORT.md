@@ -81,7 +81,7 @@ Chính vì vậy, đề tài **"Context-Aware Unit Test Generation"** ra đời 
 | AST Parsing        : Babel Parser, TypeScript Compiler API, Regex Parser|
 | LLM Gateway        : Ollama (Local), Google Gemini, DeepSeek, OpenAI    |
 | Testing Frameworks : Jest, pytest (Python), JUnit 5 (Java), Go testing  |
-| Quality Evaluation : Stryker Mutator (Mutation Score), Jest Coverage    |
+| Quality Evaluation : Custom MutationRunner (Mutation Score), Jest Coverage|
 | Build & Bundling   : NPM Workspaces, TypeScript Compiler (`tsc`)        |
 +-------------------------------------------------------------------------+
 ```
@@ -92,7 +92,7 @@ Chính vì vậy, đề tài **"Context-Aware Unit Test Generation"** ra đời 
    - **Ollama (Mặc định local):** Hỗ trợ mô hình mã nguồn mở như `qwen2.5-coder:1.5b`, `llama3.2`, `codellama` đảm bảo tính bảo mật và riêng tư mã nguồn cho doanh nghiệp.
    - **Cloud Providers:** Google Gemini (`gemini-2.0-flash`), OpenAI (`gpt-4o`), DeepSeek API.
 4. **Công cụ đánh giá (Evaluation Harness):**
-   - **Stryker Mutation Engine:** Đo Mutation Score thực nghiệm.
+   - **MutationRunner Engine (AST Mutators):** Bộ đột biến mã nguồn dựa trên AST (Toán tử so sánh, điều kiện biên, logic, số học) và chạy Jest kiểm thử để đo Mutation Score thực nghiệm thực tế.
    - **Jest Runner API:** Đo đạc Line Coverage & Branch Coverage tự động.
 
 ---
@@ -375,8 +375,6 @@ Service -> User : Thông báo "✅ Đã lưu file test thành công!"
 ```
 
 ---
-
-## 7. KẾT QUẢ TRIỂN KHAI & THỰC NGHIỆM (RESULTS & BENCHMARK)
 
 ## 7. KẾT QUẢ TRIỂN KHAI & THỰC NGHIỆM (RESULTS & BENCHMARK)
 

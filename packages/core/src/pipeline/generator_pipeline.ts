@@ -64,26 +64,56 @@ export class CoreGeneratorPipeline {
       fs.writeFileSync(options.outputTestFilePath, processedOutput.testCode, 'utf-8');
     }
 
-    // 6. Chạy đo Coverage nếu được bật và mã hợp lệ
+    // 6. Chạy đo Coverage nếu được bật (hoặc chạy dryRun) và mã hợp lệ
     let execution: PipelineResult['execution'];
-    if (options.runCoverage && processedOutput.syntaxValidation.isValid) {
+    if ((options.runCoverage || options.dryRun) && processedOutput.syntaxValidation.isValid) {
       if (options.outputTestFilePath && !options.dryRun && fs.existsSync(options.outputTestFilePath)) {
-        execution = await this.coverageRunner.executeTest(options.outputTestFilePath);
+        execution = await this.coverageRunner.executeTest(options.outputTestFilePath, options.serviceFilePath);
       } else {
         // Chạy trong sandbox tạm để không ghi đè file đích trước khi xác nhận
-        const tempDir = path.resolve(process.cwd(), '.pipeline_temp');
-        fs.mkdirSync(tempDir, { recursive: true });
-        const tempTestPath = path.join(tempDir, 'temp.test.ts');
-        try {
+        let tempTestPath: string;
+        let isIsolatedDir = false;
+        let tempDir = '';
+
+        const refDir = options.outputTestFilePath
+          ? path.dirname(options.outputTestFilePath)
+          : options.serviceFilePath
+            ? path.dirname(options.serviceFilePath)
+            : undefined;
+
+        if (refDir && fs.existsSync(refDir)) {
+          // Đặt file tạm cùng thư mục để bảo toàn 100% cấu trúc import tương đối (./service)
+          tempTestPath = path.join(refDir, `.temp_preview_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.test.ts`);
           fs.writeFileSync(tempTestPath, processedOutput.testCode, 'utf-8');
-          execution = await this.coverageRunner.executeTest(tempTestPath);
+        } else {
+          // Tạo thư mục tạm biệt lập và copy serviceCode/serviceFilePath vào để phục vụ import
+          isIsolatedDir = true;
+          tempDir = path.resolve(process.cwd(), `.pipeline_temp_${Date.now()}`);
+          fs.mkdirSync(tempDir, { recursive: true });
+          tempTestPath = path.join(tempDir, 'temp.test.ts');
+          fs.writeFileSync(tempTestPath, processedOutput.testCode, 'utf-8');
+
+          const serviceFileName = options.serviceFilePath ? path.basename(options.serviceFilePath) : 'service.ts';
+          const serviceDest = path.join(tempDir, serviceFileName);
+          if (options.serviceFilePath && fs.existsSync(options.serviceFilePath)) {
+            fs.copyFileSync(options.serviceFilePath, serviceDest);
+          } else if (options.serviceCode) {
+            fs.writeFileSync(serviceDest, options.serviceCode, 'utf-8');
+          }
+        }
+
+        try {
+          execution = await this.coverageRunner.executeTest(tempTestPath, options.serviceFilePath);
         } finally {
-          if (fs.existsSync(tempDir)) {
+          if (fs.existsSync(tempTestPath)) {
+            try {
+              fs.unlinkSync(tempTestPath);
+            } catch {}
+          }
+          if (isIsolatedDir && fs.existsSync(tempDir)) {
             try {
               fs.rmSync(tempDir, { recursive: true, force: true });
-            } catch {
-              // Ignore cleanup errors
-            }
+            } catch {}
           }
         }
       }
