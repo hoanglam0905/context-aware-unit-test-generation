@@ -11,7 +11,13 @@ Follow these constraints strictly:
 2. Cover both happy paths and error cases.
 3. Output ONLY the runnable TypeScript test code enclosed in \`\`\`typescript ... \`\`\`. Do not include conversational text.`;
 
-    const userPrompt = `Generate a complete unit test file for the following TypeScript service:
+    const astSection = context.astSummary ? `\n\n### AST Structure:\n${context.astSummary}` : '';
+    const reqSection =
+      context.ablationMode !== 'code-only' && context.requirementDoc
+        ? `\n\n### Business Requirements (Reference):\n${context.requirementDoc}`
+        : '';
+
+    const userPrompt = `Generate a complete unit test file for the following TypeScript service:${astSection}${reqSection}
 
 \`\`\`typescript
 ${context.serviceCode}

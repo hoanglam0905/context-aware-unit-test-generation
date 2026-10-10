@@ -188,12 +188,16 @@ Scenario Outline: Ném lỗi khi mật khẩu sai
       expect(payload.requirement?.title).toContain('Tính toán giảm giá theo hạng thành viên');
       expect(payload.requirement?.scenarios.length).toBeGreaterThanOrEqual(3);
 
+      expect(payload.promptContext.astSummary).toBeDefined();
+      expect(payload.promptContext.astSummary).toContain('calculateDiscount');
+
       // Tương thích với Prompt Strategy của Thành viên A
       const hybridStrategy = PromptStrategyFactory.getStrategy('hybrid');
       const promptPayload = hybridStrategy.buildPrompt(payload.promptContext);
 
       expect(promptPayload.userPrompt).toContain('DiscountCalculatorService');
       expect(promptPayload.userPrompt).toContain('Tính toán giảm giá theo hạng thành viên');
+      expect(promptPayload.userPrompt).toContain('AST STRUCTURE ANALYSIS');
       expect(promptPayload.expectedOutputFormat).toBe('JSON');
 
       // Format summary helper

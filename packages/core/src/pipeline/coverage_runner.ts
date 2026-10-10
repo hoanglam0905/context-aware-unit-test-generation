@@ -41,18 +41,13 @@ export class CoverageRunner {
 
     if (!runCLI) {
       return {
-        executed: true,
-        totalTests: 1,
-        passedTests: 1,
+        executed: false,
+        totalTests: 0,
+        passedTests: 0,
         failedTests: 0,
-        passRate: 100,
-        suitePassed: true,
-        coverage: {
-          lines: 100,
-          branches: 100,
-          functions: 100,
-          statements: 100,
-        },
+        passRate: 0,
+        suitePassed: false,
+        errorMessage: 'Jest runner is not available or could not be loaded.',
       };
     }
 
@@ -78,21 +73,30 @@ export class CoverageRunner {
       const passedTests = results.numPassedTests || 0;
       const failedTests = results.numFailedTests || 0;
       const passRate = totalTests > 0 ? parseFloat(((passedTests / totalTests) * 100).toFixed(2)) : 0;
-      const suitePassed = results.success && failedTests === 0;
+      const suitePassed = results.success && failedTests === 0 && totalTests > 0;
+
+      const parsePct = (val: any): number => {
+        if (typeof val === 'number' && !isNaN(val)) return val;
+        const parsed = parseFloat(val);
+        return isNaN(parsed) ? 0 : parsed;
+      };
 
       const coverageSummary = results.coverageMap?.getCoverageSummary()?.data;
       const coverage = coverageSummary
         ? {
-            lines: coverageSummary.lines?.pct ?? 0,
-            branches: coverageSummary.branches?.pct ?? 0,
-            functions: coverageSummary.functions?.pct ?? 0,
-            statements: coverageSummary.statements?.pct ?? 0,
+            lines: parsePct(coverageSummary.lines?.pct),
+            branches: parsePct(coverageSummary.branches?.pct),
+            functions: parsePct(coverageSummary.functions?.pct),
+            statements: parsePct(coverageSummary.statements?.pct),
           }
         : undefined;
 
       let errorMessage: string | undefined;
       if (!suitePassed && results.testResults && results.testResults.length > 0) {
         errorMessage = results.testResults[0].failureMessage || undefined;
+      }
+      if (!suitePassed && !errorMessage && totalTests === 0) {
+        errorMessage = 'No tests executed or test suite failed during initialization.';
       }
 
       return {

@@ -46,6 +46,7 @@ export interface MutationSummary {
   serviceId: string;
   strategy: string;
   totalMutants: number;
+  validMutants: number;
   killedMutants: number;
   survivedMutants: number;
   timeoutMutants: number;

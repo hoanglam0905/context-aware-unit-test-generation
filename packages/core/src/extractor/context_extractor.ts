@@ -59,7 +59,10 @@ export class ContextExtractor {
       ? mainClass.methods.map((m) => m.name)
       : codeContext.functions.map((f) => f.name);
 
-    // 4. Tạo PromptContext chuẩn hóa tương thích với LLM Prompt Strategy
+    // 4. Tạo AST Summary
+    const astSummary = this.buildAstSummary(codeContext);
+
+    // 5. Tạo PromptContext chuẩn hóa tương thích với LLM Prompt Strategy
     const promptContext: PromptContext = {
       serviceCode: rawCode,
       requirementDoc: rawRequirement.trim().length > 0 ? rawRequirement : undefined,
@@ -67,6 +70,8 @@ export class ContextExtractor {
       className: targetClassName,
       sourceLanguage: langInfo.name,
       testFramework: langInfo.defaultTestFramework,
+      astSummary,
+      ablationMode: 'full',
     };
 
     return {
@@ -80,6 +85,44 @@ export class ContextExtractor {
         sourceLanguage: langInfo.id,
       },
     };
+  }
+
+  /**
+   * Tạo tóm tắt cấu trúc AST (Classes, methods, properties, signatures) cho Prompt
+   */
+  public buildAstSummary(codeContext: CodeContext): string {
+    const lines: string[] = [];
+    if (codeContext.classes && codeContext.classes.length > 0) {
+      lines.push('Classes:');
+      for (const cls of codeContext.classes) {
+        lines.push(`- Class ${cls.name}:`);
+        if (cls.properties && cls.properties.length > 0) {
+          lines.push('  Properties:');
+          for (const prop of cls.properties) {
+            lines.push(`    - ${prop.visibility} ${prop.name}: ${prop.type}`);
+          }
+        }
+        if (cls.methods && cls.methods.length > 0) {
+          lines.push('  Methods:');
+          for (const m of cls.methods) {
+            const params = (m.parameters || [])
+              .map((p) => `${p.name}${p.isOptional ? '?' : ''}: ${p.type}`)
+              .join(', ');
+            lines.push(`    - ${m.visibility} ${m.name}(${params}): ${m.returnType}${m.isAsync ? ' (async)' : ''}`);
+          }
+        }
+      }
+    }
+    if (codeContext.functions && codeContext.functions.length > 0) {
+      lines.push('Standalone Functions:');
+      for (const fn of codeContext.functions) {
+        const params = (fn.parameters || [])
+          .map((p) => `${p.name}${p.isOptional ? '?' : ''}: ${p.type}`)
+          .join(', ');
+        lines.push(`- ${fn.name}(${params}): ${fn.returnType}${fn.isAsync ? ' (async)' : ''}`);
+      }
+    }
+    return lines.join('\n');
   }
 
   /**

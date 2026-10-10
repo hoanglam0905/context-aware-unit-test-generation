@@ -41,11 +41,11 @@ ${context.requirementDoc || 'No explicit BA requirement document provided. Rely 
 \`\`\`${lang.toLowerCase()}
 ${context.serviceCode}
 \`\`\`
-
+${context.astSummary ? `\n---\n\n### 3. AST STRUCTURE ANALYSIS:\n${context.astSummary}\n` : ''}
 ---
 
 ### INSTRUCTIONS:
-1. Cross-reference every Business Rule and Gherkin Acceptance Criterion with the source code.
+1. Cross-reference every Business Rule and Gherkin Acceptance Criterion with the source code and AST structure.
 2. Formulate explicit test scenarios covering edge cases mentioned in the BA document (e.g., specific discounts, retry limits, lockout counts, boundary values).
 3. Return the complete result in JSON format (or a JSON block followed by a \`\`\`${lang.toLowerCase()} code block).
 4. CRITICAL: The "testCode" MUST contain the REAL, FULL, EXECUTABLE unit test code in ${lang} using ${framework}. NEVER output placeholder comments like "// Complete, runnable test file" or "// TODO". You MUST write actual imports, test suites, test cases, and assertions!`;

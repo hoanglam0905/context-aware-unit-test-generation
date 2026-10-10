@@ -4,6 +4,7 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 import { PromptStrategyFactory } from '../packages/core/src/prompts';
+import { ContextExtractor } from '../packages/core/src/extractor';
 import {
   ILLMGateway,
   GeminiGateway,
@@ -105,11 +106,15 @@ export class BatchExperimentRunner {
 
           try {
             const strategy = PromptStrategyFactory.getStrategy(strategyName);
-            const promptPayload = strategy.buildPrompt({
+            const extractor = new ContextExtractor();
+            const extracted = extractor.extract({
               serviceCode,
               requirementDoc,
-              className: service.serviceId,
+              serviceFilePath: service.servicePath,
+              requirementFilePath: service.reqPath,
+              targetClassName: service.serviceId,
             });
+            const promptPayload = strategy.buildPrompt(extracted.promptContext);
 
             const result = await modelConfig.gateway.generate(
               promptPayload.systemPrompt,

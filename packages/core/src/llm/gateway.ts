@@ -197,14 +197,43 @@ export class OpenAICompatibleGateway implements ILLMGateway {
 /**
  * Gateway kết nối Google Gemini API (Miễn phí qua Google AI Studio)
  */
+export interface GeminiGatewayOptions {
+  apiKey?: string;
+  modelName?: string;
+  temperature?: number;
+}
+
 export class GeminiGateway implements ILLMGateway {
   public readonly providerName = 'Google-Gemini';
+  public readonly modelName: string;
+  private readonly apiKey: string;
+  private readonly temperature: number;
 
   constructor(
-    public readonly modelName: string = 'gemini-1.5-flash',
-    private readonly apiKey: string,
-    private readonly temperature: number = 0.2
-  ) {}
+    param1?: string | GeminiGatewayOptions,
+    param2?: string,
+    temperature = 0.2
+  ) {
+    if (typeof param1 === 'object' && param1 !== null) {
+      this.modelName = param1.modelName || 'gemini-1.5-flash';
+      this.apiKey = param1.apiKey || process.env.GEMINI_API_KEY || '';
+      this.temperature = param1.temperature ?? 0.2;
+    } else {
+      const p1 = param1 || 'gemini-1.5-flash';
+      // Nếu p1 bắt đầu bằng 'AIza' (Google API key format) hoặc param2 là tên model (chứa gemini)
+      if (param2 && (param2.includes('gemini') || p1.startsWith('AIza'))) {
+        this.apiKey = p1;
+        this.modelName = param2;
+      } else if (param2) {
+        this.modelName = p1;
+        this.apiKey = param2;
+      } else {
+        this.modelName = p1;
+        this.apiKey = process.env.GEMINI_API_KEY || '';
+      }
+      this.temperature = temperature;
+    }
+  }
 
   public async generate(systemPrompt: string, userPrompt: string): Promise<LLMResponse> {
     const startTime = Date.now();

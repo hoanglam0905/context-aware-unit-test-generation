@@ -60,6 +60,7 @@ export interface PipelineOptions {
   strategyName: 'zero-shot' | 'few-shot' | 'cot' | 'hybrid';
   outputTestFilePath?: string;
   runCoverage?: boolean;
+  dryRun?: boolean;
 }
 
 /**

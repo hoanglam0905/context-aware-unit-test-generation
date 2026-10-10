@@ -231,11 +231,17 @@ export class GeneratedTestEvaluator {
       }
 
       // Đã biên dịch & thực thi các test case thành công
+      const parsePct = (val: any): number => {
+        if (typeof val === 'number' && !isNaN(val)) return parseFloat(val.toFixed(2));
+        const parsed = parseFloat(val);
+        return isNaN(parsed) ? 0 : parseFloat(parsed.toFixed(2));
+      };
+
       const coverageSummary = results.coverageMap?.getCoverageSummary()?.data;
-      const linesPct = coverageSummary?.lines?.pct ?? 0;
-      const branchesPct = coverageSummary?.branches?.pct ?? 0;
-      const statementsPct = coverageSummary?.statements?.pct ?? 0;
-      const functionsPct = coverageSummary?.functions?.pct ?? 0;
+      const linesPct = parsePct(coverageSummary?.lines?.pct);
+      const branchesPct = parsePct(coverageSummary?.branches?.pct);
+      const statementsPct = parsePct(coverageSummary?.statements?.pct);
+      const functionsPct = parsePct(coverageSummary?.functions?.pct);
 
       const passRate = totalTests > 0 ? (passedTests / totalTests) * 100 : 0;
       const suitePassed = totalTests > 0 && failedTests === 0;
@@ -258,10 +264,10 @@ export class GeneratedTestEvaluator {
           errorMessage: failedTests > 0 ? (testSuiteResult?.failureMessage || undefined) : undefined,
         },
         coverage: {
-          linesPct: parseFloat(linesPct.toFixed(2)),
-          branchesPct: parseFloat(branchesPct.toFixed(2)),
-          statementsPct: parseFloat(statementsPct.toFixed(2)),
-          functionsPct: parseFloat(functionsPct.toFixed(2)),
+          linesPct,
+          branchesPct,
+          statementsPct,
+          functionsPct,
         },
         durationMs: Date.now() - startTime,
         evaluatedAt,

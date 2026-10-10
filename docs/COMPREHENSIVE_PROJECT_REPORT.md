@@ -378,30 +378,42 @@ Service -> User : Thông báo "✅ Đã lưu file test thành công!"
 
 ## 7. KẾT QUẢ TRIỂN KHAI & THỰC NGHIỆM (RESULTS & BENCHMARK)
 
-### 7.1. Tập dữ liệu thực nghiệm (Dataset)
-Bộ thực nghiệm được xây dựng gồm các bài toán từ mức độ đơn giản đến phức tạp, đi kèm đầy đủ mã nguồn Service và tài liệu đặc tả nghiệp vụ Gherkin BA:
-- `s01_discount_calculator`: Tính toán chiết khấu đơn hàng thương mại điện tử theo hạng VIP và số lượng.
-- `s02_password_validator`: Kiểm tra độ mạnh mật khẩu theo các quy tắc bảo mật nghiêm ngặt.
-- `s03_shipping_fee_calculator`: Tính phí vận chuyển theo khoảng cách địa lý và trọng lượng hàng.
-- `s04_tax_calculator`: Tính thuế thu nhập cá nhân theo biểu thuế lũy tiến từng phần.
-- `s05_slug_generator`: Chuyển đổi chuỗi tiếng Việt có dấu thành URL Slug chuẩn SEO.
+## 7. KẾT QUẢ TRIỂN KHAI & THỰC NGHIỆM (RESULTS & BENCHMARK)
 
-### 7.2. Kết quả so sánh 4 Chiến lược Prompt (Benchmark Matrix)
+### 7.1. Tập dữ liệu thực nghiệm (Dataset Catalog)
+Bộ benchmark gồm **15 bài toán mẫu TypeScript** chuẩn hóa, phân cấp thành 3 mức độ (Simple, Medium, Complex), đi kèm đầy đủ mã nguồn Service (`service.ts`), tài liệu đặc tả nghiệp vụ (`requirement.md`) và bộ kiểm thử chuẩn (`ground_truth.test.ts`):
+- **Simple (S01 - S05):** `s01_discount_calculator`, `s02_password_validator`, `s03_shipping_fee_calculator`, `s04_tax_calculator`, `s05_slug_generator`.
+- **Medium (S06 - S10):** `s06_auth_service`, `s07_cart_service`, `s08_coupon_service`, `s09_notification_service`, `s10_user_profile_service`.
+- **Complex (S11 - S15):** `s11_payment_service`, `s12_order_fulfillment_service`, `s13_booking_concurrency_service`, `s14_subscription_renewal_service`, `s15_loyalty_point_service`.
 
-| Chiến lược Prompt | Line Coverage (%) | Branch Coverage (%) | Mutation Score (%) | Thời gian sinh trung bình (s) | Tỷ lệ Test Case đúng nghiệp vụ BA (%) |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **1. Zero-Shot** | 68.4% | 52.1% | 48.6% | **2.1s** | 41.2% |
-| **2. Few-Shot** | 79.2% | 68.5% | 64.3% | 3.4s | 62.8% |
-| **3. Chain-of-Thought (CoT)** | 88.6% | 81.3% | 77.5% | 5.2s | 83.5% |
-| **4. Hybrid Strategy (Đề xuất)** | **96.8%** | **92.4%** | **89.7%** | 4.6s | **95.2%** |
+*Ghi chú phạm vi:* Evaluator tự động và harness đo lường hiện tại được thiết lập hoàn chỉnh trên hệ sinh thái **TypeScript / Jest**. Các phần mở rộng (Go, Python) hiện hoạt động ở tầng trích xuất ngữ cảnh AST (Parser prototype).
 
-#### Nhận xét thực nghiệm:
-1. **Độ phủ nhánh (Branch Coverage) & Mutation Score:**
-   Chiến lược **Hybrid** đạt Mutation Score cao nhất (**89.7%**) và Branch Coverage (**92.4%**), vượt trội hoàn toàn so với Zero-shot nhờ việc kết hợp tài liệu BA (chỉ ra các giá trị biên) cùng suy luận phân bước (CoT).
-2. **Hiệu quả của Self-Reflection Auto-Fix:**
-   Cơ chế Auto-Fix giúp kéo giảm tỷ lệ mã test lỗi từ **24.6%** xuống còn **dưới 1.8%** ngay trong vòng lặp đầu tiên mà không cần can thiệp thủ công từ lập trình viên.
-3. **Hiệu năng Real-time:**
-   Bộ phân tích AST Diff Fingerprint giúp loại bỏ hơn **70%** các lần gọi LLM không cần thiết khi lập trình viên chỉ chỉnh sửa khoảng trắng, comment hoặc định dạng mã nguồn.
+### 7.2. Kết quả Đo lường Ground Truth & Mục tiêu Đánh giá Đối sánh
+
+#### Bảng 1: Kiểm định tính đúng đắn của Bộ Ground Truth (Verified Baseline Artifact)
+*Toàn bộ 15 bộ test chuẩn đã được chạy kiểm thử thật qua Jest runner trong Docker container:*
+
+| Độ phức tạp | Số lượng Service | Tỷ lệ Pass Suite | Line Coverage trung bình | Branch Coverage trung bình |
+| :--- | :---: | :---: | :---: | :---: |
+| **Simple (S01 - S05)** | 5 | 100% (5/5) | 98.4% | 94.2% |
+| **Medium (S06 - S10)** | 5 | 100% (5/5) | 96.1% | 89.8% |
+| **Complex (S11 - S15)** | 5 | 100% (5/5) | 94.7% | 88.5% |
+| **Toàn bộ Benchmark** | **15** | **100% (15/15)** | **96.4%** | **90.8%** |
+
+#### Bảng 2: Ma trận Chỉ tiêu Thiết kế và Đối sánh Prompt Strategy (Pilot Benchmark Framework)
+*(Dữ liệu thô thực nghiệm được lưu trữ truy vết tại `experiments/results/` và được sinh tự động bởi `batch_runner.ts` và `evaluate_generated_tests.ts`)*
+
+| Chiến lược Prompt | Context Đầu vào | Đo lường Mutation | Đo lường Coverage | Trạng thái Thực nghiệm |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. Zero-Shot** | Source Code (+ AST) | Đo lường qua MutationRunner | Đo lường qua Jest json-summary | Baseline đối chứng Code-only |
+| **2. Few-Shot** | Source Code + Exemplar từ Train Set | Đo lường qua MutationRunner | Đo lường qua Jest json-summary | Baseline có mẫu tham khảo |
+| **3. Chain-of-Thought (CoT)** | Source Code + CoT Steps (+ BA) | Đo lường qua MutationRunner | Đo lường qua Jest json-summary | Đo lường năng lực lập luận đa tầng |
+| **4. Hybrid Strategy** | Source Code + AST Summary + BA Spec | Đo lường qua MutationRunner | Đo lường qua Jest json-summary | Đề xuất cốt lõi kết hợp BA + Code |
+
+#### Nhận xét và Quy tắc Thực nghiệm Khoa học:
+1. **Loại bỏ dữ liệu mô phỏng:** Toàn bộ điểm số Code Coverage và Mutation Score được đo trực tiếp từ Jest và `MutationRunner` thực thi trong sandbox, không áp dụng bất kỳ hệ số gán cứng hay fallback giả lập nào.
+2. **Cô lập biến nghiên cứu cho Fine-Tuning:** Khi tiến hành fine-tuning mô hình (LoRA/QLoRA), cả hai nhánh Base Model và Fine-Tuned Model được cấp chung cấu hình prompt, cùng ngữ cảnh BA + AST, cùng temperature và token budget trên tập **Test Holdout** độc lập (S05, S10, S15) để đảm bảo kết luận khoa học chính xác.
+3. **Cơ chế Auto-Fix:** Được kích hoạt tự động khi mã sinh ra lỗi cú pháp hoặc fail assertion; kết quả sửa lỗi được kiểm tra trong sandbox trước khi cập nhật.
 
 ---
 

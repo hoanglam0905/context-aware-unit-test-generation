@@ -9,32 +9,57 @@ You will be provided with an exemplar of a Service and its corresponding high-qu
 You must follow the structure, mocking conventions, and assertion style of the exemplar.
 Output ONLY the runnable TypeScript test code enclosed in \`\`\`typescript ... \`\`\`.`;
 
-    const exemplarService = `export class MathUtil {
-  public divide(a: number, b: number): number {
-    if (b === 0) throw new Error('Division by zero');
-    return a / b;
+    const exemplarService = `export enum MembershipTier {
+  REGULAR = 'REGULAR',
+  GOLD = 'GOLD',
+}
+
+export class DiscountCalculatorService {
+  private static readonly MAX_DISCOUNT_CAP = 500000;
+
+  public calculateDiscount(orderAmount: number, tier = MembershipTier.REGULAR) {
+    if (orderAmount <= 0) throw new Error('Order amount must be greater than zero');
+    const rate = tier === MembershipTier.GOLD ? 0.15 : 0.05;
+    let discount = Math.round(orderAmount * rate);
+    if (discount > DiscountCalculatorService.MAX_DISCOUNT_CAP) {
+      discount = DiscountCalculatorService.MAX_DISCOUNT_CAP;
+    }
+    return { discountAmount: discount, finalAmount: orderAmount - discount };
   }
 }`;
 
-    const exemplarTest = `import { MathUtil } from './service';
+    const exemplarTest = `import { DiscountCalculatorService, MembershipTier } from './service';
 
-describe('MathUtil', () => {
-  let util: MathUtil;
+describe('DiscountCalculatorService (Training Exemplar)', () => {
+  let service: DiscountCalculatorService;
 
   beforeEach(() => {
-    util = new MathUtil();
+    service = new DiscountCalculatorService();
   });
 
-  it('should divide two valid positive numbers correctly', () => {
-    expect(util.divide(10, 2)).toBe(5);
+  it('should calculate discount for REGULAR tier correctly', () => {
+    const result = service.calculateDiscount(100000, MembershipTier.REGULAR);
+    expect(result.discountAmount).toBe(5000);
+    expect(result.finalAmount).toBe(95000);
   });
 
-  it('should throw Error when dividing by zero', () => {
-    expect(() => util.divide(10, 0)).toThrow('Division by zero');
+  it('should apply discount cap when discount exceeds maximum limit', () => {
+    const result = service.calculateDiscount(10000000, MembershipTier.GOLD);
+    expect(result.discountAmount).toBe(500000);
+  });
+
+  it('should throw Error when orderAmount is invalid (non-positive)', () => {
+    expect(() => service.calculateDiscount(0)).toThrow('Order amount must be greater than zero');
   });
 });`;
 
-    const userPrompt = `### EXEMPLAR 1:
+    const astSection = context.astSummary ? `\n\n### AST Structure:\n${context.astSummary}` : '';
+    const reqSection =
+      context.ablationMode !== 'code-only' && context.requirementDoc
+        ? `\n\n### Business Requirements (Reference):\n${context.requirementDoc}`
+        : '';
+
+    const userPrompt = `### EXEMPLAR 1 (Training Reference):
 Target Service:
 \`\`\`typescript
 ${exemplarService}
@@ -48,7 +73,7 @@ ${exemplarTest}
 ---
 
 ### NEW TASK:
-Generate a complete unit test suite for this target service, strictly adhering to the style shown above:
+Generate a complete unit test suite for this target service, strictly adhering to the style shown above:${astSection}${reqSection}
 
 \`\`\`typescript
 ${context.serviceCode}

@@ -88,9 +88,29 @@ Hãy phân tích nguyên nhân lỗi và sinh lại file mã kiểm thử hoàn 
 
       // Nếu cú pháp hợp lệ
       if (processedOutput.syntaxValidation.isValid) {
-        // Nếu có đường dẫn file test và coverage runner, thử chạy lại để verify
+        // Nếu có đường dẫn file test và coverage runner, thử chạy lại để verify trong sandbox
         if (request.testFilePath) {
-          const runResult = await this.coverageRunner.executeTest(request.testFilePath);
+          const fs = require('fs');
+          const path = require('path');
+          const sandboxDir = path.resolve(process.cwd(), '.autofix_sandbox');
+          if (!fs.existsSync(sandboxDir)) {
+            fs.mkdirSync(sandboxDir, { recursive: true });
+          }
+          const sandboxTestPath = path.join(sandboxDir, 'autofix.test.ts');
+          let runResult;
+          try {
+            fs.writeFileSync(sandboxTestPath, currentTestCode, 'utf-8');
+            runResult = await this.coverageRunner.executeTest(sandboxTestPath);
+          } finally {
+            if (fs.existsSync(sandboxDir)) {
+              try {
+                fs.rmSync(sandboxDir, { recursive: true, force: true });
+              } catch {
+                // Ignore cleanup errors
+              }
+            }
+          }
+
           if (runResult.suitePassed) {
             return {
               fixed: true,

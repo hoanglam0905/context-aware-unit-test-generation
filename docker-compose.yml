@@ -23,9 +23,11 @@ services:
       - OLLAMA_BASE_URL=http://ollama:11434/v1
     volumes:
       # Mount code, config, results và dataset để đồng bộ realtime với máy thật
+      - ./package.json:/app/package.json
       - ./jest.config.js:/app/jest.config.js
-      - ./experiments/results:/app/experiments/results
-      - ./experiments/dataset:/app/experiments/dataset
+      - ./packages:/app/packages
+      - ./experiments:/app/experiments
+      - ./docs:/app/docs
     command: npm test
 
 volumes:

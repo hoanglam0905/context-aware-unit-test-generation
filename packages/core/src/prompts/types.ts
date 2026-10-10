@@ -5,6 +5,8 @@ export interface PromptContext {
   className?: string;
   sourceLanguage?: string;
   testFramework?: string;
+  astSummary?: string;
+  ablationMode?: 'full' | 'code-only' | 'req-only';
 }
 
 export interface PromptPayload {

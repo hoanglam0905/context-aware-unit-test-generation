@@ -25,7 +25,13 @@ Format your response in two clear sections:
 // Full Jest test file here
 \`\`\``;
 
-    const userPrompt = `Perform Step-by-Step Chain-of-Thought analysis and generate a complete test suite for:
+    const astSection = context.astSummary ? `\n\n### AST Structure:\n${context.astSummary}` : '';
+    const reqSection =
+      context.ablationMode !== 'code-only' && context.requirementDoc
+        ? `\n\n### Business Requirements (Reference):\n${context.requirementDoc}`
+        : '';
+
+    const userPrompt = `Perform Step-by-Step Chain-of-Thought analysis and generate a complete test suite for:${astSection}${reqSection}
 
 \`\`\`typescript
 ${context.serviceCode}

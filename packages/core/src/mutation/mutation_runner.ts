@@ -79,6 +79,7 @@ export class MutationRunner {
       serviceId,
       strategy,
       totalMutants: mutants.length,
+      validMutants: validMutantsCount,
       killedMutants,
       survivedMutants,
       timeoutMutants,
@@ -109,6 +110,15 @@ export class MutationRunner {
     fs.writeFileSync(mutantServicePath, mutant.mutatedFileContent, 'utf-8');
     fs.writeFileSync(mutantTestPath, adjustedTestSource, 'utf-8');
 
+    if (!runCLI) {
+      return {
+        mutant,
+        status: 'COMPILE_ERROR',
+        errorMessage: 'Jest runner is not available or could not be loaded.',
+        durationMs: Date.now() - mutantStartTime,
+      };
+    }
+
     try {
       const jestConfig: any = {
         roots: [mutantDir],
@@ -125,16 +135,36 @@ export class MutationRunner {
       let killingTestName: string | undefined;
       let errorMessage: string | undefined;
 
-      if (!results.success || results.numFailedTests > 0) {
+      const hasFailedTests = (results.numFailedTests || 0) > 0;
+      const totalTests = results.numTotalTests || 0;
+      const hasSuiteFailure = !results.success || (results.numFailedTestSuites || 0) > 0;
+
+      if (hasFailedTests) {
+        // Có test assertion thực sự fail do mutant
         status = 'KILLED';
         if (results.testResults && results.testResults.length > 0) {
           const failedResult = results.testResults[0];
           errorMessage = failedResult.failureMessage || undefined;
-          const failedAssertion = failedResult.testResults.find((t: any) => t.status === 'failed');
+          const failedAssertion = failedResult.testResults?.find((t: any) => t.status === 'failed');
           if (failedAssertion) {
             killingTestName = failedAssertion.title;
           }
         }
+      } else if (hasSuiteFailure && totalTests === 0) {
+        // Lỗi biên dịch, cú pháp hoặc import harness khiến suite không thể chạy
+        status = 'COMPILE_ERROR';
+        if (results.testResults && results.testResults.length > 0) {
+          errorMessage = results.testResults[0].failureMessage || 'Compilation/runtime error before tests could execute.';
+        } else {
+          errorMessage = 'Compilation/runtime error before tests could execute.';
+        }
+      } else if (!hasSuiteFailure && totalTests > 0) {
+        // Toàn bộ test suite pass -> mutant đã sống sót
+        status = 'SURVIVED';
+      } else {
+        // Trường hợp khác (harness crash hoặc timeout)
+        status = 'COMPILE_ERROR';
+        errorMessage = 'Uncategorized test harness failure.';
       }
 
       return {

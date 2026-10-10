@@ -55,8 +55,8 @@ export class CoreGeneratorPipeline {
       promptPayload.expectedOutputFormat
     );
 
-    // 5. Lưu ra file nếu được chỉ định
-    if (options.outputTestFilePath) {
+    // 5. Lưu ra file nếu được chỉ định và không chạy dryRun
+    if (options.outputTestFilePath && !options.dryRun) {
       const outputDir = path.dirname(options.outputTestFilePath);
       if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
@@ -66,8 +66,27 @@ export class CoreGeneratorPipeline {
 
     // 6. Chạy đo Coverage nếu được bật và mã hợp lệ
     let execution: PipelineResult['execution'];
-    if (options.runCoverage && options.outputTestFilePath && processedOutput.syntaxValidation.isValid) {
-      execution = await this.coverageRunner.executeTest(options.outputTestFilePath);
+    if (options.runCoverage && processedOutput.syntaxValidation.isValid) {
+      if (options.outputTestFilePath && !options.dryRun && fs.existsSync(options.outputTestFilePath)) {
+        execution = await this.coverageRunner.executeTest(options.outputTestFilePath);
+      } else {
+        // Chạy trong sandbox tạm để không ghi đè file đích trước khi xác nhận
+        const tempDir = path.resolve(process.cwd(), '.pipeline_temp');
+        fs.mkdirSync(tempDir, { recursive: true });
+        const tempTestPath = path.join(tempDir, 'temp.test.ts');
+        try {
+          fs.writeFileSync(tempTestPath, processedOutput.testCode, 'utf-8');
+          execution = await this.coverageRunner.executeTest(tempTestPath);
+        } finally {
+          if (fs.existsSync(tempDir)) {
+            try {
+              fs.rmSync(tempDir, { recursive: true, force: true });
+            } catch {
+              // Ignore cleanup errors
+            }
+          }
+        }
+      }
     }
 
     const durationMs = Date.now() - startTime;

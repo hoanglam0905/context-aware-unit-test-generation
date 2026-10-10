@@ -45,6 +45,11 @@ export class TestGenerationService {
     try {
       const defaultOutputPath = LanguageDetector.computeTestFilePath(serviceFilePath);
 
+      // Thiết lập callback lưu file thực sự khi người dùng bấm ACCEPT_TEST
+      panel.setTargetOutput(defaultOutputPath, (testCode) => {
+        this.saveTestFile(serviceFilePath, testCode);
+      });
+
       let result = await vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
@@ -58,6 +63,7 @@ export class TestGenerationService {
             strategyName: config.promptStrategy,
             outputTestFilePath: defaultOutputPath,
             runCoverage: config.autoRunCoverage,
+            dryRun: true, // Không chạm file đích trên đĩa trước khi người dùng xác nhận
           });
         }
       );

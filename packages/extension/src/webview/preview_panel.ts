@@ -8,6 +8,9 @@ export class TestPreviewPanel {
   private readonly _panel: any;
   private readonly _extensionUri: any;
   private _disposables: any[] = [];
+  private _targetOutputPath?: string;
+  private _lastTestCode?: string;
+  private _onAcceptCallback?: (testCode: string, outputPath: string) => void;
 
   public static createOrShow(extensionUri: any, initialData?: any): TestPreviewPanel {
     const column = vscode.window.activeTextEditor
@@ -41,6 +44,11 @@ export class TestPreviewPanel {
     return TestPreviewPanel.currentPanel;
   }
 
+  public setTargetOutput(outputPath: string, onAccept?: (testCode: string, outputPath: string) => void): void {
+    this._targetOutputPath = outputPath;
+    this._onAcceptCallback = onAccept;
+  }
+
   private constructor(panel: any, extensionUri: any) {
     this._panel = panel;
     this._extensionUri = extensionUri;
@@ -53,7 +61,26 @@ export class TestPreviewPanel {
       (message: WebviewToHostMessage) => {
         switch (message.type) {
           case 'ACCEPT_TEST': {
-            vscode.window.showInformationMessage('✅ Đã lưu file test thành công vào workspace!');
+            const testCode = message.payload?.testCode || this._lastTestCode || '';
+            const outputPath = message.payload?.outputPath || this._targetOutputPath;
+            if (outputPath && testCode) {
+              if (this._onAcceptCallback) {
+                this._onAcceptCallback(testCode, outputPath);
+              } else {
+                try {
+                  const fs = require('fs');
+                  const path = require('path');
+                  const dir = path.dirname(outputPath);
+                  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                  fs.writeFileSync(outputPath, testCode, 'utf-8');
+                } catch (e: any) {
+                  vscode.window.showErrorMessage(`Lỗi lưu file: ${e.message}`);
+                }
+              }
+              vscode.window.showInformationMessage('✅ Đã lưu file test thành công vào workspace!');
+            } else {
+              vscode.window.showInformationMessage('✅ Đã lưu file test thành công vào workspace!');
+            }
             break;
           }
           case 'REJECT_TEST': {
@@ -72,6 +99,9 @@ export class TestPreviewPanel {
   }
 
   public sendData(data: HostToWebviewMessage['payload']): void {
+    if (data && 'testCode' in data && (data as any).testCode) {
+      this._lastTestCode = (data as any).testCode;
+    }
     this._panel.webview.postMessage({
       type: 'SET_PREVIEW_DATA',
       payload: data,

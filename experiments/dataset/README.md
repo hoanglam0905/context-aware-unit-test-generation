@@ -45,3 +45,44 @@ experiments/dataset/<tier>/<service_id>/
 ├── service.ts          # Mã nguồn Service cần viết Unit Test (TypeScript)
 └── ground_truth.test.ts # Bộ Unit Test mẫu chuẩn do chuyên gia/con người viết làm đối trọng so sánh
 ```
+
+---
+
+## 4. Phân chia tập dữ liệu (Dataset Partitioning & Holdout Isolation)
+
+Để ngăn chặn 100% rò rỉ dữ liệu (Data Leakage) cho giai đoạn Fine-Tuning và Baseline Evaluation, 15 service được phân chia cố định theo **Service-level partition**:
+
+| Phân vùng | Tỷ lệ | Số lượng | Danh sách Services | Mục đích sử dụng |
+| :--- | :---: | :---: | :--- | :--- |
+| **Train** | 60% | 9 services | S01, S02, S03 (Simple)<br>S06, S07, S08 (Medium)<br>S11, S12, S13 (Complex) | Huấn luyện mô hình LoRA / QLoRA SFT |
+| **Validation** | 20% | 3 services | S04 (Simple)<br>S09 (Medium)<br>S14 (Complex) | Đánh giá loss trong khi train, chọn checkpoint và hyperparameter |
+| **Test Holdout** | 20% | 3 services | S05 (Simple)<br>S10 (Medium)<br>S15 (Complex) | Đánh giá mù (Unseen evaluation) đối chứng Base vs FT. Tuyệt đối không dùng để chọn prompt hay checkpoint. |
+
+- File Manifest quản lý: [`experiments/dataset/dataset_manifest.json`](file:///Users/anfinmobile/personality/context-aware-unit-test-generation/experiments/dataset/dataset_manifest.json)
+- Script kiểm định rò rỉ & chạy 100% Ground Truth: `npm run dataset:validate`
+- Script xuất tập huấn luyện Chat/Instruct JSONL: `npm run dataset:export`
+
+---
+
+## 5. Bảng Traceability Nghiệp Vụ (Acceptance Criteria Traceability)
+
+Tất cả 15 bài toán đã được kiểm định tính khớp nối giữa tiêu chí nghiệm thu (AC) và test case:
+
+| Service ID | Hạng mục nghiệp vụ chính | Số AC | Traceability tới Ground Truth | Trạng thái Suite |
+| :--- | :--- | :---: | :--- | :---: |
+| **S01** | Giảm giá theo hạng thành viên & min order | 4 | AC1-4 $\rightarrow$ `discount.test.ts` (boundary & normal) | 100% PASS |
+| **S02** | Ràng buộc độ mạnh mật khẩu & lịch sử | 5 | AC1-5 $\rightarrow$ `password.test.ts` (length, special, history) | 100% PASS |
+| **S03** | Tính phí giao hàng km & Express | 4 | AC1-4 $\rightarrow$ `shipping.test.ts` (distance tiers, express) | 100% PASS |
+| **S04** | Thuế TNCN lũy tiến & người phụ thuộc | 5 | AC1-5 $\rightarrow$ `tax.test.ts` (brackets, deductions) | 100% PASS |
+| **S05** | URL Slug tiếng Việt & cắt ngắn ký tự | 4 | AC1-4 $\rightarrow$ `slug.test.ts` (diacritics, trim, length) | 100% PASS |
+| **S06** | Đăng nhập bcrypt & khóa sau 5 lần sai | 6 | AC1-6 $\rightarrow$ `auth.test.ts` (lockout, token generation) | 100% PASS |
+| **S07** | Giỏ hàng, tồn kho & giới hạn max order | 5 | AC1-5 $\rightarrow$ `cart.test.ts` (stock validation, max items) | 100% PASS |
+| **S08** | Coupon voucher hạn dùng & min order | 5 | AC1-5 $\rightarrow$ `coupon.test.ts` (expiry, single-use, min spend) | 100% PASS |
+| **S09** | Thông báo đa kênh Email/SMS/Push | 5 | AC1-5 $\rightarrow$ `notification.test.ts` (priority, fallbacks) | 100% PASS |
+| **S10** | Đổi email hồ sơ & xác nhận token | 5 | AC1-5 $\rightarrow$ `profile.test.ts` (email verification flow) | 100% PASS |
+| **S11** | Thanh toán 3rd-party, Idempotency & refund | 6 | AC1-6 $\rightarrow$ `payment.test.ts` (idempotency, error rollback) | 100% PASS |
+| **S12** | State machine đơn hàng PENDING..DELIVERED | 6 | AC1-6 $\rightarrow$ `fulfillment.test.ts` (state transitions, rollback) | 100% PASS |
+| **S13** | Đặt phòng thời gian thực, lock 10 phút | 5 | AC1-5 $\rightarrow$ `booking.test.ts` (concurrency slot lock, expiry) | 100% PASS |
+| **S14** | Tự động gia hạn thẻ & hạ cấp sau 7 ngày | 6 | AC1-6 $\rightarrow$ `subscription.test.ts` (retry attempts, downgrade) | 100% PASS |
+| **S15** | Quy đổi điểm thưởng & Fraud detection | 5 | AC1-5 $\rightarrow$ `loyalty.test.ts` (point rates, fraud threshold) | 100% PASS |
+

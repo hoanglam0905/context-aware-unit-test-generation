@@ -3,7 +3,7 @@
  */
 export type WebviewToHostMessage =
   | { type: 'GENERATE_TEST'; payload: { servicePath?: string; requirementPath?: string; strategy: string } }
-  | { type: 'ACCEPT_TEST'; payload: { testCode: string; outputPath?: string } }
+  | { type: 'ACCEPT_TEST'; payload?: { testCode?: string; outputPath?: string } }
   | { type: 'REJECT_TEST' }
   | { type: 'TOGGLE_SCENARIO'; payload: { scenarioId: string; selected: boolean } }
   | { type: 'OPEN_SETTINGS' }
@@ -45,4 +45,6 @@ export interface ExtensionConfiguration {
   autoRunCoverage: boolean;
   apiKey?: string;
   customEndpoint?: string;
+  adapterPath?: string;
+  fineTunedModel?: string;
 }

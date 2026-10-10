@@ -155,5 +155,18 @@ describe('DiscountCalculatorService', () => {
       expect(result.passRate).toBe(100);
       expect(result.coverage).toBeDefined();
     });
+
+    it('trả về executed: false và không có coverage giả khi file test không tồn tại', async () => {
+      const runner = new CoverageRunner({ silent: true });
+      const nonExistentPath = path.join(rootDatasetDir, 'non_existent.test.ts');
+
+      const result = await runner.executeTest(nonExistentPath);
+
+      expect(result.executed).toBe(false);
+      expect(result.suitePassed).toBe(false);
+      expect(result.totalTests).toBe(0);
+      expect(result.coverage).toBeUndefined();
+      expect(result.errorMessage).toContain('Test file not found');
+    });
   });
 });

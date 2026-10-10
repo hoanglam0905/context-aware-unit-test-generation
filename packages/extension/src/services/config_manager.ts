@@ -94,12 +94,17 @@ export class ConfigurationManager {
       config.get('customEndpoint') ||
       (modelProvider === 'ollama' ? process.env.OLLAMA_BASE_URL || 'http://localhost:11434/v1' : undefined);
 
+    const adapterPath = (config.get('adapterPath') as string) || process.env.ADAPTER_PATH;
+    const fineTunedModel = (config.get('fineTunedModel') as string) || process.env.FINE_TUNED_MODEL;
+
     return {
       modelProvider,
       promptStrategy,
       autoRunCoverage,
       apiKey,
       customEndpoint,
+      adapterPath,
+      fineTunedModel,
     };
   }
 
@@ -112,21 +117,24 @@ export class ConfigurationManager {
     switch (config.modelProvider) {
       case 'ollama': {
         const baseUrl = config.customEndpoint || process.env.OLLAMA_BASE_URL || 'http://localhost:11434/v1';
-        const modelName = process.env.OLLAMA_MODEL || 'qwen2.5-coder:1.5b';
+        const modelName = config.fineTunedModel || process.env.OLLAMA_MODEL || 'qwen2.5-coder:1.5b';
         return new OpenAICompatibleGateway('Ollama', modelName, 'ollama', baseUrl);
       }
       case 'gemini': {
         const apiKey = config.apiKey || process.env.GEMINI_API_KEY || '';
-        return new GeminiGateway(apiKey, 'gemini-1.5-flash');
+        const modelName = config.fineTunedModel || process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+        return new GeminiGateway({ apiKey, modelName });
       }
       case 'deepseek': {
         const apiKey = config.apiKey || process.env.DEEPSEEK_API_KEY || '';
-        return new OpenAICompatibleGateway('DeepSeek', 'deepseek-coder', apiKey, 'https://api.deepseek.com/v1');
+        const modelName = config.fineTunedModel || 'deepseek-coder';
+        return new OpenAICompatibleGateway('DeepSeek', modelName, apiKey, 'https://api.deepseek.com/v1');
       }
       case 'openai':
       default: {
         const apiKey = config.apiKey || process.env.OPENAI_API_KEY || '';
-        return new OpenAICompatibleGateway('OpenAI', 'gpt-4o', apiKey);
+        const modelName = config.fineTunedModel || 'gpt-4o';
+        return new OpenAICompatibleGateway('OpenAI', modelName, apiKey);
       }
     }
   }
