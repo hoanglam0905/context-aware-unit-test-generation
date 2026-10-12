@@ -98,9 +98,76 @@ describe('DiscountCalculatorService', () => {
       const summary = metricsCollector.getAggregateSummary();
       expect(summary.totalGenerations).toBe(2);
       expect(summary.successRate).toBe(100);
+      expect(summary.syntaxValidRate).toBe(100);
+      expect(summary.testPassRate).toBe(100);
       expect(summary.avgLatencyMs).toBe(1500);
       expect(summary.avgTokens).toBe(1500);
       expect(summary.autoFixTriggeredCount).toBe(1);
+    });
+
+    it('phân biệt rạch ròi 4 trạng thái: lỗi cú pháp, chưa chạy runner, suite fail và suite pass', () => {
+      // 1. Lỗi cú pháp
+      metricsCollector.recordMetric({
+        serviceName: 'S01_FaultySyntax',
+        provider: 'gemini',
+        strategy: 'zero-shot',
+        latencyMs: 800,
+        scenariosCount: 0,
+        autoFixAttempts: 2,
+        syntaxValid: false,
+        testExecutionStatus: 'not_run',
+        success: false,
+      });
+
+      // 2. Cú pháp hợp lệ nhưng chưa chạy test runner
+      metricsCollector.recordMetric({
+        serviceName: 'S02_NotRun',
+        provider: 'gemini',
+        strategy: 'few-shot',
+        latencyMs: 1000,
+        scenariosCount: 3,
+        autoFixAttempts: 0,
+        syntaxValid: true,
+        testExecutionStatus: 'not_run',
+        success: true,
+      });
+
+      // 3. Cú pháp hợp lệ, đã chạy nhưng suite fail assertion
+      metricsCollector.recordMetric({
+        serviceName: 'S03_AssertionFail',
+        provider: 'gemini',
+        strategy: 'cot',
+        latencyMs: 1500,
+        scenariosCount: 4,
+        autoFixAttempts: 1,
+        syntaxValid: true,
+        testExecutionStatus: 'failed',
+        success: false,
+      });
+
+      // 4. Cú pháp hợp lệ và test suite pass
+      metricsCollector.recordMetric({
+        serviceName: 'S04_PassSuite',
+        provider: 'gemini',
+        strategy: 'hybrid',
+        latencyMs: 1200,
+        scenariosCount: 5,
+        autoFixAttempts: 0,
+        syntaxValid: true,
+        testExecutionStatus: 'passed',
+        success: true,
+      });
+
+      const summary = metricsCollector.getAggregateSummary();
+      expect(summary.totalGenerations).toBe(4);
+      // 3 trong 4 là syntaxValid: 75%
+      expect(summary.syntaxValidRate).toBe(75.0);
+      // 2 lượt đã thực thi test runner: 1 pass, 1 fail -> 50%
+      expect(summary.executedCount).toBe(2);
+      expect(summary.passedCount).toBe(1);
+      expect(summary.testPassRate).toBe(50.0);
+      // 2 lượt overall success: 50%
+      expect(summary.overallSuccessRate).toBe(50.0);
     });
   });
 

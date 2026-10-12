@@ -150,6 +150,7 @@ export async function validateDataset(): Promise<{
     lines.forEach((line, lineIdx) => {
       try {
         const record = JSON.parse(line);
+        const svcId = record.metadata?.serviceId;
 
         // Kiểm tra cấu trúc messages
         if (!Array.isArray(record.messages) || record.messages.length !== 3) {
@@ -177,7 +178,16 @@ export async function validateDataset(): Promise<{
           jsonlValid = false;
         }
 
-        // Kiểm tra Traceability của từng scenario: không được chứa placeholder
+        // Kiểm tra Traceability của từng scenario: không được chứa placeholder hoặc nhãn generic
+        const svcManifest = manifest.services.find((s) => s.id === svcId);
+        let reqText = '';
+        if (svcManifest) {
+          const reqPath = path.join(datasetDir, svcManifest.folder, svcManifest.requirementFile);
+          if (fs.existsSync(reqPath)) {
+            reqText = fs.readFileSync(reqPath, 'utf-8');
+          }
+        }
+
         for (const scen of asstData.testScenarios) {
           if (!scen.id || !scen.description) {
             errors.push(`[${cfg.file}:L${lineIdx + 1}] scenario thiếu id hoặc description`);
@@ -185,9 +195,25 @@ export async function validateDataset(): Promise<{
           }
 
           const acRef = scen.acceptanceCriteriaRef || '';
-          if (acRef.includes('Rule for ') || acRef.toLowerCase().includes('todo') || acRef.trim().length === 0) {
-            errors.push(`[${cfg.file}:L${lineIdx + 1}] scenario ${scen.id} chứa placeholder acceptanceCriteriaRef: "${acRef}"`);
+          if (
+            acRef.startsWith('AC-STD') ||
+            acRef.startsWith('AC-BND') ||
+            acRef.startsWith('AC-ERR') ||
+            acRef.includes('Rule for ') ||
+            acRef.toLowerCase().includes('todo') ||
+            acRef.trim().length === 0
+          ) {
+            errors.push(`[${cfg.file}:L${lineIdx + 1}] scenario ${scen.id} chứa generic/placeholder acceptanceCriteriaRef: "${acRef}"`);
             jsonlValid = false;
+          }
+
+          // Kiểm tra xem mã AC hoặc BR có cơ sở trong requirement.md không
+          const acMatch = acRef.match(/^(AC\d+|BR\d+)/);
+          if (acMatch && reqText) {
+            if (!reqText.includes('Acceptance Criteria') && !reqText.includes('Business Rules') && !reqText.includes('Quy tắc nghiệp vụ')) {
+              errors.push(`[${cfg.file}:L${lineIdx + 1}] requirement của ${svcId} thiếu cấu trúc AC/BR`);
+              jsonlValid = false;
+            }
           }
 
           const expected = scen.expectedBehavior || '';
@@ -198,7 +224,6 @@ export async function validateDataset(): Promise<{
         }
 
         // Kiểm tra metadata
-        const svcId = record.metadata?.serviceId;
         if (!svcId || !cfg.expectedIds.has(svcId)) {
           errors.push(`[${cfg.file}:L${lineIdx + 1}] serviceId "${svcId}" không thuộc split ${cfg.name}`);
           jsonlValid = false;
@@ -233,6 +258,7 @@ export async function validateDataset(): Promise<{
   const runner = new CoverageRunner({ silent: true });
   let passedCount = 0;
   let failedCount = 0;
+  const groundTruthResults: any[] = [];
 
   console.log('| ID | Service | Tier | Split | Tests | Suite Pass | Line Cov | Branch Cov |');
   console.log('|:---|:---|:---:|:---:|:---:|:---:|:---:|:---:|');
@@ -242,6 +268,18 @@ export async function validateDataset(): Promise<{
     const svcPath = path.join(datasetDir, svc.folder, svc.serviceFile);
 
     const execResult = await runner.executeTest(testPath, svcPath);
+    groundTruthResults.push({
+      serviceId: svc.id,
+      name: svc.name,
+      tier: svc.tier,
+      split: svc.split,
+      totalTests: execResult.totalTests,
+      suitePassed: execResult.suitePassed,
+      passRate: execResult.passRate,
+      coverage: execResult.coverage,
+      errorMessage: execResult.errorMessage,
+    });
+
     if (execResult.executed && execResult.suitePassed) {
       passedCount++;
       const lineCov = execResult.coverage ? `${execResult.coverage.lines}%` : 'N/A';
@@ -255,6 +293,30 @@ export async function validateDataset(): Promise<{
       }
     }
   }
+
+  // Lưu artifact kết quả kiểm định thật vào experiments/results
+  const resultsDir = path.resolve(__dirname, '../results');
+  if (!fs.existsSync(resultsDir)) {
+    fs.mkdirSync(resultsDir, { recursive: true });
+  }
+  const groundTruthSummaryPath = path.join(resultsDir, 'ground_truth_eval_summary.json');
+  fs.writeFileSync(
+    groundTruthSummaryPath,
+    JSON.stringify(
+      {
+        evaluatedAt: new Date().toISOString(),
+        totalServices: manifest.services.length,
+        passedSuites: passedCount,
+        failedSuites: failedCount,
+        passRate: parseFloat(((passedCount / manifest.services.length) * 100).toFixed(2)),
+        results: groundTruthResults,
+      },
+      null,
+      2
+    ),
+    'utf-8'
+  );
+  console.log(`\n📁 Đã lưu artifact kiểm định Ground Truth tại: ${groundTruthSummaryPath}`);
 
   console.log('\n----------------------------------------------------------------');
   console.log(`📊 Kết quả kiểm định: ${passedCount}/15 Suites Đạt (100% Pass) | Lỗi: ${failedCount}`);

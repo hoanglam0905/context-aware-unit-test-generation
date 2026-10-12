@@ -125,6 +125,16 @@ export class TestGenerationService {
       });
 
       const totalLatency = Date.now() - startTime;
+      const syntaxValid = result.processedOutput.syntaxValidation.isValid;
+      const testExecutionStatus: 'not_run' | 'passed' | 'failed' =
+        !result.execution || !result.execution.executed
+          ? 'not_run'
+          : result.execution.suitePassed
+            ? 'passed'
+            : 'failed';
+
+      // Thành công khi cú pháp hợp lệ VÀ (nếu có chạy test thì test suite phải pass)
+      const isSuccess = syntaxValid && testExecutionStatus !== 'failed';
 
       // Ghi nhận chỉ số thực nghiệm
       this.metricsCollector.recordMetric({
@@ -135,12 +145,24 @@ export class TestGenerationService {
         tokens: result.llmResponse.usage,
         scenariosCount: result.processedOutput.testScenarios.length,
         autoFixAttempts,
-        success: result.processedOutput.syntaxValidation.isValid,
+        syntaxValid,
+        testExecutionStatus,
+        success: isSuccess,
       });
 
-      vscode.window.showInformationMessage(
-        `✅ Đã sinh thành công ${result.processedOutput.testScenarios.length} kịch bản test cho ${serviceFileName} (${totalLatency}ms)!`
-      );
+      if (testExecutionStatus === 'passed') {
+        vscode.window.showInformationMessage(
+          `✅ Đã sinh thành công ${result.processedOutput.testScenarios.length} kịch bản test và chạy kiểm thử PASS cho ${serviceFileName} (${totalLatency}ms)!`
+        );
+      } else if (testExecutionStatus === 'failed') {
+        vscode.window.showWarningMessage(
+          `⚠️ Đã sinh ${result.processedOutput.testScenarios.length} kịch bản test cho ${serviceFileName} (${totalLatency}ms) nhưng kiểm thử thất bại!`
+        );
+      } else {
+        vscode.window.showInformationMessage(
+          `✅ Đã sinh thành công ${result.processedOutput.testScenarios.length} kịch bản test cho ${serviceFileName} (${totalLatency}ms, chưa chạy kiểm thử)!`
+        );
+      }
 
       return result;
     } catch (err: any) {

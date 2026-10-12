@@ -1,0 +1,234 @@
+{
+  "evaluatedAt": "2026-10-12T15:53:29.813Z",
+  "totalServices": 15,
+  "passedSuites": 15,
+  "failedSuites": 0,
+  "passRate": 100,
+  "results": [
+    {
+      "serviceId": "S01_DiscountCalculator",
+      "name": "DiscountCalculatorService",
+      "tier": "simple",
+      "split": "train",
+      "totalTests": 11,
+      "suitePassed": true,
+      "passRate": 100,
+      "coverage": {
+        "lines": 100,
+        "branches": 100,
+        "functions": 100,
+        "statements": 100
+      }
+    },
+    {
+      "serviceId": "S02_PasswordValidator",
+      "name": "PasswordValidatorService",
+      "tier": "simple",
+      "split": "train",
+      "totalTests": 12,
+      "suitePassed": true,
+      "passRate": 100,
+      "coverage": {
+        "lines": 100,
+        "branches": 100,
+        "functions": 100,
+        "statements": 100
+      }
+    },
+    {
+      "serviceId": "S03_ShippingFeeCalculator",
+      "name": "ShippingFeeCalculatorService",
+      "tier": "simple",
+      "split": "train",
+      "totalTests": 10,
+      "suitePassed": true,
+      "passRate": 100,
+      "coverage": {
+        "lines": 100,
+        "branches": 100,
+        "functions": 100,
+        "statements": 100
+      }
+    },
+    {
+      "serviceId": "S04_TaxCalculator",
+      "name": "TaxCalculatorService",
+      "tier": "simple",
+      "split": "validation",
+      "totalTests": 6,
+      "suitePassed": true,
+      "passRate": 100,
+      "coverage": {
+        "lines": 100,
+        "branches": 100,
+        "functions": 100,
+        "statements": 100
+      }
+    },
+    {
+      "serviceId": "S05_SlugGenerator",
+      "name": "SlugGeneratorService",
+      "tier": "simple",
+      "split": "test",
+      "totalTests": 7,
+      "suitePassed": true,
+      "passRate": 100,
+      "coverage": {
+        "lines": 96.55,
+        "branches": 93.33,
+        "functions": 100,
+        "statements": 96.55
+      }
+    },
+    {
+      "serviceId": "S06_AuthService",
+      "name": "AuthService",
+      "tier": "medium",
+      "split": "train",
+      "totalTests": 9,
+      "suitePassed": true,
+      "passRate": 100,
+      "coverage": {
+        "lines": 100,
+        "branches": 100,
+        "functions": 100,
+        "statements": 100
+      }
+    },
+    {
+      "serviceId": "S07_CartService",
+      "name": "CartService",
+      "tier": "medium",
+      "split": "train",
+      "totalTests": 6,
+      "suitePassed": true,
+      "passRate": 100,
+      "coverage": {
+        "lines": 76.92,
+        "branches": 55,
+        "functions": 91.66,
+        "statements": 77.19
+      }
+    },
+    {
+      "serviceId": "S08_CouponService",
+      "name": "CouponService",
+      "tier": "medium",
+      "split": "train",
+      "totalTests": 8,
+      "suitePassed": true,
+      "passRate": 100,
+      "coverage": {
+        "lines": 97.87,
+        "branches": 90.47,
+        "functions": 100,
+        "statements": 97.87
+      }
+    },
+    {
+      "serviceId": "S09_NotificationService",
+      "name": "NotificationService",
+      "tier": "medium",
+      "split": "validation",
+      "totalTests": 5,
+      "suitePassed": true,
+      "passRate": 100,
+      "coverage": {
+        "lines": 100,
+        "branches": 87.5,
+        "functions": 100,
+        "statements": 100
+      }
+    },
+    {
+      "serviceId": "S10_UserProfileService",
+      "name": "UserProfileService",
+      "tier": "medium",
+      "split": "test",
+      "totalTests": 12,
+      "suitePassed": true,
+      "passRate": 100,
+      "coverage": {
+        "lines": 100,
+        "branches": 100,
+        "functions": 100,
+        "statements": 100
+      }
+    },
+    {
+      "serviceId": "S11_PaymentService",
+      "name": "PaymentService",
+      "tier": "complex",
+      "split": "train",
+      "totalTests": 8,
+      "suitePassed": true,
+      "passRate": 100,
+      "coverage": {
+        "lines": 100,
+        "branches": 94.73,
+        "functions": 90,
+        "statements": 100
+      }
+    },
+    {
+      "serviceId": "S12_OrderFulfillmentService",
+      "name": "OrderFulfillmentService",
+      "tier": "complex",
+      "split": "train",
+      "totalTests": 14,
+      "suitePassed": true,
+      "passRate": 100,
+      "coverage": {
+        "lines": 100,
+        "branches": 100,
+        "functions": 100,
+        "statements": 100
+      }
+    },
+    {
+      "serviceId": "S13_BookingConcurrencyService",
+      "name": "BookingConcurrencyService",
+      "tier": "complex",
+      "split": "train",
+      "totalTests": 11,
+      "suitePassed": true,
+      "passRate": 100,
+      "coverage": {
+        "lines": 100,
+        "branches": 87.5,
+        "functions": 90.9,
+        "statements": 98.38
+      }
+    },
+    {
+      "serviceId": "S14_SubscriptionRenewalService",
+      "name": "SubscriptionRenewalService",
+      "tier": "complex",
+      "split": "validation",
+      "totalTests": 6,
+      "suitePassed": true,
+      "passRate": 100,
+      "coverage": {
+        "lines": 100,
+        "branches": 83.33,
+        "functions": 75,
+        "statements": 97.82
+      }
+    },
+    {
+      "serviceId": "S15_LoyaltyPointService",
+      "name": "LoyaltyPointService",
+      "tier": "complex",
+      "split": "test",
+      "totalTests": 8,
+      "suitePassed": true,
+      "passRate": 100,
+      "coverage": {
+        "lines": 100,
+        "branches": 84.61,
+        "functions": 100,
+        "statements": 100
+      }
+    }
+  ]
+}

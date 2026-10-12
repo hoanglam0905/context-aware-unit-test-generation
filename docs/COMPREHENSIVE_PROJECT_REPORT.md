@@ -50,7 +50,7 @@ Chính vì vậy, đề tài **"Context-Aware Unit Test Generation"** ra đời 
 - **Chiến lược sinh kiểm thử đa tầng (Prompt Strategies):** Hiện thực hóa 4 chiến lược: *Zero-shot*, *Few-shot*, *Chain-of-Thought (CoT)* và *Hybrid Strategy* để đánh giá đối sánh.
 - **Cơ chế Tự sửa lỗi (Self-Reflection Auto-Fix):** Tự động bắt lỗi cú pháp, đưa phản hồi lỗi (Compiler Error Feedback) ngược lại cho LLM để sửa mã test tự động trong tối đa $N$ vòng lặp.
 - **Tích hợp Real-time & CodeLens trong IDE:** Tích hợp trực tiếp vào VS Code Extension, sinh test tức thì khi lưu file (`onSave` với AST Diff) hoặc click nút CodeLens trên từng hàm.
-- **Hỗ trợ đa ngôn ngữ (Polyglot):** Hỗ trợ TypeScript, JavaScript, Python (`pytest`), Java (`JUnit 5`), C# (`xUnit`), Go (`testing`).
+- **Khả năng mở rộng đa ngôn ngữ (Polyglot Readiness):** Thiết lập hệ thống kiểm định và benchmark chuẩn hóa trên TypeScript/Jest; đồng thời xây dựng kiến trúc phân tích cú pháp mở rộng (Universal AST Parser prototype) hỗ trợ nhận diện cấu trúc cho Python, Java, C#, Go (kèm PoC demo tại `examples/go_demo/`).
 
 ---
 
@@ -80,7 +80,7 @@ Chính vì vậy, đề tài **"Context-Aware Unit Test Generation"** ra đời 
 | Core Engine        : TypeScript 5.x, Node.js v20+                       |
 | AST Parsing        : Babel Parser, TypeScript Compiler API, Regex Parser|
 | LLM Gateway        : Ollama (Local), Google Gemini, DeepSeek, OpenAI    |
-| Testing Frameworks : Jest, pytest (Python), JUnit 5 (Java), Go testing  |
+| Testing Frameworks : Jest (Hệ thống đánh giá chính), Prototype: pytest, JUnit 5, Go test|
 | Quality Evaluation : Custom MutationRunner (Mutation Score), Jest Coverage|
 | Build & Bundling   : NPM Workspaces, TypeScript Compiler (`tsc`)        |
 +-------------------------------------------------------------------------+
@@ -384,34 +384,62 @@ Bộ benchmark gồm **15 bài toán mẫu TypeScript** chuẩn hóa, phân cấ
 - **Medium (S06 - S10):** `s06_auth_service`, `s07_cart_service`, `s08_coupon_service`, `s09_notification_service`, `s10_user_profile_service`.
 - **Complex (S11 - S15):** `s11_payment_service`, `s12_order_fulfillment_service`, `s13_booking_concurrency_service`, `s14_subscription_renewal_service`, `s15_loyalty_point_service`.
 
-*Ghi chú phạm vi:* Evaluator tự động và harness đo lường hiện tại được thiết lập hoàn chỉnh trên hệ sinh thái **TypeScript / Jest**. Các phần mở rộng (Go, Python) hiện hoạt động ở tầng trích xuất ngữ cảnh AST (Parser prototype).
+*Phân chia tập dữ liệu (Dataset Partitioning):*
+- **Train (9 services):** S01, S02, S03, S06, S07, S08, S11, S12, S13 (phục vụ trích xuất 80 mẫu dữ liệu huấn luyện fine-tuning).
+- **Validation (3 services):** S04, S09, S14 (phục vụ checkpoint tuning và thẩm định siêu tham số).
+- **Test Holdout (3 services):** S05, S10, S15 (tập kiểm thử độc lập, hoàn toàn cách ly 0% data leakage).
+
+*Ghi chú phạm vi (Scope & Limitations):* Benchmark hiện tại là bộ **pilot benchmark gồm 15 dịch vụ trên hệ sinh thái TypeScript / Jest**. Toàn bộ pipeline đo đạc tự động (Code Coverage, Mutation Testing, Dataset Validator) được chạy hoàn chỉnh trên TypeScript/Jest. Các module mở rộng (Python parser, Go demo tại `examples/go_demo/`) là các prototype kiến trúc chứng minh tính khả thi mở rộng, không dùng để công bố số liệu kiểm thử đầu-cuối trong báo cáo này.
 
 ### 7.2. Kết quả Đo lường Ground Truth & Mục tiêu Đánh giá Đối sánh
 
 #### Bảng 1: Kiểm định tính đúng đắn của Bộ Ground Truth (Verified Baseline Artifact)
-*Toàn bộ 15 bộ test chuẩn đã được chạy kiểm thử thật qua Jest runner trong Docker container:*
+*Toàn bộ 15 bộ test chuẩn đã được chạy kiểm thử thật qua Jest runner trong Docker container, lưu trữ tại `experiments/results/ground_truth_eval_summary.json` (lệnh chạy: `npm run dataset:validate`):*
 
-| Độ phức tạp | Số lượng Service | Tỷ lệ Pass Suite | Line Coverage trung bình | Branch Coverage trung bình |
-| :--- | :---: | :---: | :---: | :---: |
-| **Simple (S01 - S05)** | 5 | 100% (5/5) | 98.4% | 94.2% |
-| **Medium (S06 - S10)** | 5 | 100% (5/5) | 96.1% | 89.8% |
-| **Complex (S11 - S15)** | 5 | 100% (5/5) | 94.7% | 88.5% |
-| **Toàn bộ Benchmark** | **15** | **100% (15/15)** | **96.4%** | **90.8%** |
+| Độ phức tạp | Số lượng Service | Tổng Test Cases | Tỷ lệ Pass Suite | Line Coverage trung bình | Branch Coverage trung bình |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Simple (S01 - S05)** | 5 | 46 | 100% (5/5) | **99.31%** | **98.67%** |
+| **Medium (S06 - S10)** | 5 | 40 | 100% (5/5) | **94.96%** | **86.59%** |
+| **Complex (S11 - S15)** | 5 | 47 | 100% (5/5) | **100.0%** | **90.03%** |
+| **Toàn bộ Benchmark (Pilot)** | **15** | **133** | **100% (15/15)** | **98.09%** | **91.76%** |
 
-#### Bảng 2: Ma trận Chỉ tiêu Thiết kế và Đối sánh Prompt Strategy (Pilot Benchmark Framework)
-*(Dữ liệu thô thực nghiệm được lưu trữ truy vết tại `experiments/results/` và được sinh tự động bởi `batch_runner.ts` và `evaluate_generated_tests.ts`)*
+*Truy vết thực nghiệm:* Dữ liệu đo đạc được tổng hợp từ 15 tệp kiểm thử chuẩn thực tế; 133/133 test assertions đều pass; không có giá trị giả định.
 
-| Chiến lược Prompt | Context Đầu vào | Đo lường Mutation | Đo lường Coverage | Trạng thái Thực nghiệm |
+#### Bảng 2: Ma trận Đối sánh Thiết kế Prompt Strategy (Code-Aligned Specification)
+*(Được hiện thực hóa trong `packages/core/src/prompts/` và đánh giá qua `experiments/batch_runner.ts` & `experiments/evaluate_generated_tests.ts`)*
+
+| Chiến lược Prompt | Context Đầu vào | Exemplar & Hướng dẫn | Định dạng Đầu ra | Vai trò trong Nghiên cứu |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. Zero-Shot** | Source Code (+ AST) | Đo lường qua MutationRunner | Đo lường qua Jest json-summary | Baseline đối chứng Code-only |
-| **2. Few-Shot** | Source Code + Exemplar từ Train Set | Đo lường qua MutationRunner | Đo lường qua Jest json-summary | Baseline có mẫu tham khảo |
-| **3. Chain-of-Thought (CoT)** | Source Code + CoT Steps (+ BA) | Đo lường qua MutationRunner | Đo lường qua Jest json-summary | Đo lường năng lực lập luận đa tầng |
-| **4. Hybrid Strategy** | Source Code + AST Summary + BA Spec | Đo lường qua MutationRunner | Đo lường qua Jest json-summary | Đề xuất cốt lõi kết hợp BA + Code |
+| **1. Zero-Shot** | Source Code (+ AST; + BA Doc nếu ablation=full) | Không có exemplar, không hướng dẫn reasoning | `CODE_BLOCK` (`typescript`) | Baseline đối chứng trực tiếp |
+| **2. Few-Shot** | Source Code (+ AST; + BA Doc nếu ablation=full) | **Exemplar cố định** (S01 Discount Calculator trong code, *không phải mẫu động từ Train*) | `CODE_BLOCK` (`typescript`) | Baseline học mẫu cú pháp và assertion |
+| **3. Chain-of-Thought (CoT)** | Source Code (+ AST; + BA Doc nếu ablation=full) | Hướng dẫn 4 pha lập luận: Cấu trúc $\rightarrow$ Liệt kê Kịch bản $\rightarrow$ Mocking $\rightarrow$ Sinh code | Markdown (`### REASONING` + `### IMPLEMENTATION` code block) | Đánh giá năng lực suy luận phân tầng |
+| **4. Hybrid Strategy** | Source Code + AST Summary + BA Requirements Specification | Hướng dẫn cross-reference trực tiếp giữa từng Acceptance Criterion và branch code | Cấu trúc `JSON` (`testScenarios`, `reasoningSteps`, `testCode`) | Đề xuất cốt lõi (Core Innovation) kết hợp BA + Code |
 
-#### Nhận xét và Quy tắc Thực nghiệm Khoa học:
-1. **Loại bỏ dữ liệu mô phỏng:** Toàn bộ điểm số Code Coverage và Mutation Score được đo trực tiếp từ Jest và `MutationRunner` thực thi trong sandbox, không áp dụng bất kỳ hệ số gán cứng hay fallback giả lập nào.
-2. **Cô lập biến nghiên cứu cho Fine-Tuning:** Khi tiến hành fine-tuning mô hình (LoRA/QLoRA), cả hai nhánh Base Model và Fine-Tuned Model được cấp chung cấu hình prompt, cùng ngữ cảnh BA + AST, cùng temperature và token budget trên tập **Test Holdout** độc lập (S05, S10, S15) để đảm bảo kết luận khoa học chính xác.
-3. **Cơ chế Auto-Fix:** Được kích hoạt tự động khi mã sinh ra lỗi cú pháp hoặc fail assertion; kết quả sửa lỗi được kiểm tra trong sandbox trước khi cập nhật.
+*Chế độ Ablation Study (`ablationMode`):*
+- `full` (mặc định): Cung cấp cả tài liệu BA và AST Structure cho tất cả prompt strategies.
+- `code-only`: Lược bỏ phần BA Requirements khỏi Zero-Shot, Few-Shot và CoT để đo lường độ suy giảm chất lượng kiểm thử khi thiếu ngữ cảnh nghiệp vụ.
+
+### 7.3. Kết quả Thực nghiệm Mutation Testing (Pilot Service Evaluation)
+
+Harness kiểm thử đột biến (`experiments/run_mutation_testing.ts`) hỗ trợ nhận tham số động (`--all`, `--service <id>`, `--services <list>`, `--test <path>`) để thực thi trên mọi dịch vụ. Kết quả thực nghiệm đo đạc thực tế trên dịch vụ đại diện Pilot `S01_DiscountCalculator` đã được lưu tại `experiments/results/mutation_summary.json` và `experiments/results/mutation_report.md` (lệnh chạy: `npm run experiment:mutation`):
+
+| Chỉ số Đo lường | Giá trị Thực nghiệm | Ghi chú & Công thức |
+| :--- | :---: | :--- |
+| **Dịch vụ Đánh giá (Pilot)** | `S01_DiscountCalculator` | Dịch vụ tính chiết khấu đơn hàng và trần giảm giá |
+| **Tổng số Mutants sinh ra** | 9 | Sinh bởi 6 toán tử AST Mutators (Boundary, Literal, Math, Return) |
+| **Mutants hợp lệ (Mẫu số)** | 9 | `Total - CompileError` (0 lỗi biên dịch harness) |
+| **Mutants bị tiêu diệt (Killed)** | 8 | Bị phát hiện và làm fail test bởi bộ Ground Truth |
+| **Mutants sống sót (Survived)** | 1 | `MUT_005` (Đổi điều kiện biên `>` thành `>=` tại trần giảm giá) |
+| **Mutation Score (%)** | **88.89%** | $\frac{\text{Killed} + \text{Timeout}}{\text{Total} - \text{CompileError}} \times 100 = \frac{8 + 0}{9 - 0} \times 100$ |
+
+*Kế hoạch mở rộng Mutation:* Harness đã sẵn sàng để chạy ma trận đầy đủ cho cả 15 services và so sánh trực tiếp Mutation Score giữa 4 prompt strategies khi các mô hình hoàn tất batch inference.
+
+### 7.4. Nhận xét và Quy tắc Thực nghiệm Khoa học:
+1. **Loại bỏ dữ liệu mô phỏng:** 100% điểm số Code Coverage và Mutation Score trong báo cáo được đo trực tiếp từ Jest và `MutationRunner` thực thi trong sandbox độc lập (Docker container `experiment-runner`), không sử dụng số liệu ước tính hoặc hardcoded fallback.
+2. **Minh bạch hóa xuất xứ số liệu (Artifact Provenance):** Mọi bảng số liệu gắn liền với file kết quả thô (`ground_truth_eval_summary.json`, `mutation_summary.json`, `mutation_report.md`), commit version và lệnh chạy có thể tái tạo độc lập.
+3. **Cô lập biến nghiên cứu cho Fine-Tuning:** Khi tiến hành fine-tuning mô hình (LoRA/QLoRA), cả hai nhánh Base Model và Fine-Tuned Model được cấp chung cấu hình prompt, cùng ngữ cảnh BA + AST, cùng temperature và token budget trên tập **Test Holdout** độc lập (S05, S10, S15) để đảm bảo kết luận khoa học chính xác.
+4. **Cơ chế Auto-Fix:** Được kích hoạt tự động khi mã sinh ra lỗi cú pháp hoặc fail assertion; kết quả sửa lỗi được kiểm tra trong sandbox trước khi cập nhật.
+5. **Giới hạn phạm vi (Pilot Scope):** Kết quả thực nghiệm hiện tại áp dụng cho bộ pilot 15 service trên TypeScript/Jest. Việc mở rộng sang các ngôn ngữ khác sẽ cần triển khai thêm test runner và bộ dataset tương ứng cho từng ngôn ngữ.
 
 ---
 

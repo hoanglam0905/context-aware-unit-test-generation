@@ -136,39 +136,39 @@ describe('Pre-Fine-Tuning Readiness Quality Assurance Suite', () => {
     });
   });
 
-  describe('6. GeneratorPipeline Dry-Run Sandbox & Import Resolution (P0 - Step 1/3)', () => {
-    it('thực thi dryRun mượt mà với relative import ./service và dọn dẹp sạch file tạm', async () => {
-      const s01ServicePath = path.join(rootDatasetDir, 'simple/s01_discount_calculator/service.ts');
-      const s01ReqPath = path.join(rootDatasetDir, 'simple/s01_discount_calculator/requirement.md');
-      const s01Dir = path.dirname(s01ServicePath);
+  describe('6. GeneratorPipeline Dry-Run Sandbox & Decoupled Coverage (P0 - Step 1/3 & P1 - 2.5)', () => {
+    const s01ServicePath = path.join(rootDatasetDir, 'simple/s01_discount_calculator/service.ts');
+    const s01ReqPath = path.join(rootDatasetDir, 'simple/s01_discount_calculator/requirement.md');
+    const s01Dir = path.dirname(s01ServicePath);
 
-      const mockLLM: ILLMGateway = {
-        providerName: 'MockLLM',
-        modelName: 'mock-model',
-        generate: jest.fn().mockResolvedValue({
-          rawText: JSON.stringify({
-            testScenarios: [
-              {
-                id: 'TC_01',
-                description: 'Test regular discount with relative import',
-              },
-            ],
-            testCode: `
-              import { DiscountCalculatorService } from './service';
-              describe('DiscountCalculatorService Dry-Run', () => {
-                it('should calculate discount for regular correctly', () => {
-                  const service = new DiscountCalculatorService();
-                  const res = service.calculateDiscount(100000, 'REGULAR');
-                  expect(res.discountAmount).toBe(0);
-                });
+    const mockLLM: ILLMGateway = {
+      providerName: 'MockLLM',
+      modelName: 'mock-model',
+      generate: jest.fn().mockResolvedValue({
+        rawText: JSON.stringify({
+          testScenarios: [
+            {
+              id: 'TC_01',
+              description: 'Test regular discount with relative import',
+            },
+          ],
+          testCode: `
+            import { DiscountCalculatorService } from './service';
+            describe('DiscountCalculatorService Dry-Run', () => {
+              it('should calculate discount for regular correctly', () => {
+                const service = new DiscountCalculatorService();
+                const res = service.calculateDiscount(100000, 'REGULAR');
+                expect(res.discountAmount).toBe(0);
               });
-            `,
-          }),
-          testCode: '',
-          durationMs: 50,
-        } as LLMResponse),
-      };
+            });
+          `,
+        }),
+        testCode: '',
+        durationMs: 50,
+      } as LLMResponse),
+    };
 
+    it('tôn trọng cờ runCoverage=false khi chạy dryRun (không chạy runner ngầm)', async () => {
       const pipeline = new CoreGeneratorPipeline(mockLLM);
       const res = await pipeline.execute({
         serviceFilePath: s01ServicePath,
@@ -176,6 +176,25 @@ describe('Pre-Fine-Tuning Readiness Quality Assurance Suite', () => {
         targetClassName: 'DiscountCalculatorService',
         strategyName: 'hybrid',
         dryRun: true,
+        runCoverage: false,
+      });
+
+      // runCoverage=false thì execution phải là undefined
+      expect(res.execution).toBeUndefined();
+
+      const leftoverFiles = fs.readdirSync(s01Dir).filter((f) => f.startsWith('.temp_preview_') || f.startsWith('.tmp_dryrun_'));
+      expect(leftoverFiles.length).toBe(0);
+    });
+
+    it('thực thi dryRun mượt mà khi runCoverage=true với relative import ./service và dọn dẹp sạch file tạm', async () => {
+      const pipeline = new CoreGeneratorPipeline(mockLLM);
+      const res = await pipeline.execute({
+        serviceFilePath: s01ServicePath,
+        requirementFilePath: s01ReqPath,
+        targetClassName: 'DiscountCalculatorService',
+        strategyName: 'hybrid',
+        dryRun: true,
+        runCoverage: true,
       });
 
       expect(res.execution).toBeDefined();

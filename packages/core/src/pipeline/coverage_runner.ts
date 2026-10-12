@@ -52,9 +52,13 @@ export class CoverageRunner {
     }
 
     try {
+      const relTest = path.isAbsolute(testFilePath)
+        ? path.relative(this.rootDir, testFilePath).replace(/\\/g, '/')
+        : testFilePath.replace(/\\/g, '/');
+
       const jestConfig: any = {
         roots: [this.rootDir],
-        testMatch: [path.resolve(testFilePath).replace(/\\/g, '/')],
+        testMatch: [`<rootDir>/${relTest}`],
         preset: 'ts-jest',
         testEnvironment: 'node',
         collectCoverage: true,
@@ -64,7 +68,10 @@ export class CoverageRunner {
       };
 
       if (collectCoverageFromPattern) {
-        jestConfig.collectCoverageFrom = [collectCoverageFromPattern];
+        const relSvc = path.isAbsolute(collectCoverageFromPattern)
+          ? path.relative(this.rootDir, collectCoverageFromPattern).replace(/\\/g, '/')
+          : collectCoverageFromPattern.replace(/\\/g, '/');
+        jestConfig.collectCoverageFrom = [`<rootDir>/${relSvc}`];
       }
 
       const { results } = await runCLI(jestConfig as any, [this.rootDir]);

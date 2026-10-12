@@ -64,9 +64,9 @@ export class CoreGeneratorPipeline {
       fs.writeFileSync(options.outputTestFilePath, processedOutput.testCode, 'utf-8');
     }
 
-    // 6. Chạy đo Coverage nếu được bật (hoặc chạy dryRun) và mã hợp lệ
+    // 6. Chạy đo Coverage nếu được bật rõ ràng và mã hợp lệ
     let execution: PipelineResult['execution'];
-    if ((options.runCoverage || options.dryRun) && processedOutput.syntaxValidation.isValid) {
+    if (options.runCoverage && processedOutput.syntaxValidation.isValid) {
       if (options.outputTestFilePath && !options.dryRun && fs.existsSync(options.outputTestFilePath)) {
         execution = await this.coverageRunner.executeTest(options.outputTestFilePath, options.serviceFilePath);
       } else {

@@ -9,8 +9,8 @@ coverage/
 .stryker-tmp/
 reports/
 out/
-experiments/results/
 .eval_sandbox/
+experiments/results/*.test.ts
 experiments/.eval_sandbox/
 experiments/eval_sandbox/
 experiments/eval_test_sandbox/
