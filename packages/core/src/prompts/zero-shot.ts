@@ -18,7 +18,7 @@ Follow these constraints strictly:
         : '';
 
     const targetMethodSection = context.targetMethodSlice
-      ? `\n\n### Target Method (Method-Level Focus):\nTarget Signature: ${context.targetMethodSlice.signature}\nFocus test generation exclusively on this method.`
+      ? `\n\n### Target Method (Method-Level Focus):\nTarget Signature: ${context.targetMethodSlice.signature}${context.targetMethodSlice.sourceSlice ? `\nTarget Implementation:\n${context.targetMethodSlice.sourceSlice}` : ''}\nFocus test generation exclusively on this method.`
       : context.targetMethodName
         ? `\n\n### Target Method:\nFocus test generation exclusively on method: "${context.targetMethodName}()".`
         : '';

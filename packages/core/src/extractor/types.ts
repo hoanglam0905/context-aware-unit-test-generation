@@ -22,6 +22,7 @@ export interface MethodInfo {
   isStatic: boolean;
   docComment?: string;
   bodySnippet?: string;
+  sourceSlice?: string;
 }
 
 /**

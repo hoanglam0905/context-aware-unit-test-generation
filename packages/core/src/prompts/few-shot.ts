@@ -60,7 +60,7 @@ describe('DiscountCalculatorService (Training Exemplar)', () => {
         : '';
 
     const targetMethodSection = context.targetMethodSlice
-      ? `\n\n### Target Method Focus (Method-Level Scope):\nTarget Signature: ${context.targetMethodSlice.signature}\nFocus test generation specifically on this method.`
+      ? `\n\n### Target Method Focus (Method-Level Scope):\nTarget Signature: ${context.targetMethodSlice.signature}${context.targetMethodSlice.sourceSlice ? `\nTarget Implementation:\n${context.targetMethodSlice.sourceSlice}` : ''}\nFocus test generation specifically on this method.`
       : context.targetMethodName
         ? `\n\n### Target Method Focus:\nFocus test generation specifically on method: "${context.targetMethodName}()".`
         : '';

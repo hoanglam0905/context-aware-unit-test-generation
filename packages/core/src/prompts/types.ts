@@ -5,6 +5,7 @@ export interface MethodSlice {
   parameters: Array<{ name: string; type: string }>;
   returnType: string;
   signature: string;
+  sourceSlice?: string;
 }
 
 export interface PromptContext {

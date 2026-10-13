@@ -64,6 +64,7 @@ export class ContextExtractor {
             parameters: found.parameters,
             returnType: found.returnType,
             signature: `${found.visibility ?? 'public'} ${found.name}(${paramsStr}): ${found.returnType}`,
+            sourceSlice: found.sourceSlice || (found.bodySnippet ? `${found.name}(${paramsStr}) ${found.bodySnippet}` : undefined),
           };
           break;
         }
@@ -78,8 +79,13 @@ export class ContextExtractor {
             parameters: foundFunc.parameters,
             returnType: foundFunc.returnType,
             signature: `function ${foundFunc.name}(${paramsStr}): ${foundFunc.returnType}`,
+            sourceSlice: foundFunc.sourceSlice || (foundFunc.bodySnippet ? `function ${foundFunc.name}(${paramsStr}) ${foundFunc.bodySnippet}` : undefined),
           };
         }
+      }
+
+      if (!targetMethodSlice) {
+        throw new Error(`Target method "${options.targetMethodName}" was not found in service code.`);
       }
     }
 
@@ -135,6 +141,10 @@ export class ContextExtractor {
       lines.push('=== TARGET METHOD UNDER TEST (METHOD-LEVEL SCOPE) ===');
       lines.push(`Focus Class: ${targetMethodSlice.className ?? 'Global'}`);
       lines.push(`Focus Signature: ${targetMethodSlice.signature}`);
+      if (targetMethodSlice.sourceSlice) {
+        lines.push('Target Method Implementation Source:');
+        lines.push(targetMethodSlice.sourceSlice);
+      }
       lines.push('=====================================================\n');
     }
     if (codeContext.classes && codeContext.classes.length > 0) {

@@ -55,7 +55,39 @@ export function filterTestCodeByScenarios(
       const obj = callee.expression;
       const prop = callee.name.text;
       if (ts.isIdentifier(obj) && (obj.text === 'it' || obj.text === 'test')) {
-        return prop === 'only' || prop === 'skip' || prop === 'todo';
+        return prop === 'only' || prop === 'skip' || prop === 'todo' || prop === 'concurrent';
+      }
+    }
+    // Hỗ trợ it.each([...])(...) hoặc test.each([...])(...) hoặc it.concurrent.each([...])(...)
+    if (ts.isCallExpression(callee)) {
+      const innerCallee = callee.expression;
+      if (ts.isPropertyAccessExpression(innerCallee)) {
+        const prop = innerCallee.name.text;
+        if (prop === 'each') {
+          const base = innerCallee.expression;
+          if (ts.isIdentifier(base) && (base.text === 'it' || base.text === 'test')) {
+            return true;
+          }
+          if (ts.isPropertyAccessExpression(base)) {
+            const baseObj = base.expression;
+            const baseProp = base.name.text;
+            if (ts.isIdentifier(baseObj) && (baseObj.text === 'it' || baseObj.text === 'test')) {
+              return baseProp === 'concurrent' || baseProp === 'only' || baseProp === 'skip';
+            }
+          }
+        }
+      }
+    }
+    // Hỗ trợ it.each`table`('title', ...) hoặc test.each`table`('title', ...)
+    if (ts.isTaggedTemplateExpression(callee)) {
+      const tag = callee.tag;
+      if (ts.isPropertyAccessExpression(tag)) {
+        if (tag.name.text === 'each') {
+          const base = tag.expression;
+          if (ts.isIdentifier(base) && (base.text === 'it' || base.text === 'test')) {
+            return true;
+          }
+        }
       }
     }
     return false;

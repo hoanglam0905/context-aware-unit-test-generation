@@ -263,6 +263,7 @@ export class TypeScriptASTParser {
     const docComment = this.extractJSDoc(member, sourceFile);
     const parameters = this.extractParameters(member.parameters, sourceFile);
     const bodySnippet = member.body ? member.body.getText(sourceFile) : undefined;
+    const sourceSlice = member.getText(sourceFile);
 
     return {
       name,
@@ -273,6 +274,7 @@ export class TypeScriptASTParser {
       isStatic,
       docComment,
       bodySnippet,
+      sourceSlice,
     };
   }
 
@@ -283,6 +285,7 @@ export class TypeScriptASTParser {
     const docComment = this.extractJSDoc(node, sourceFile);
     const parameters = this.extractParameters(node.parameters, sourceFile);
     const bodySnippet = node.body ? node.body.getText(sourceFile) : undefined;
+    const sourceSlice = node.getText(sourceFile);
 
     return {
       name,
@@ -293,6 +296,7 @@ export class TypeScriptASTParser {
       isStatic: false,
       docComment,
       bodySnippet,
+      sourceSlice,
     };
   }
 

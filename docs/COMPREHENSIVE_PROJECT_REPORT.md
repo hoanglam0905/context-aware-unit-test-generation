@@ -471,11 +471,11 @@ $$\text{Mutation Score (\%)} = \frac{\text{Killed} + \text{Timeout}}{\text{Total
 | Chỉ số Đo lường | Giá trị Thực nghiệm | Ghi chú & Công thức |
 | :--- | :---: | :--- |
 | **Dịch vụ Đánh giá (Pilot)** | `S01_DiscountCalculator` | Dịch vụ tính chiết khấu đơn hàng và trần giảm giá |
-| **Tổng số Mutants sinh ra** | 9 | Sinh bởi 6 toán tử AST Mutators (Boundary, Literal, Math, Return) |
-| **Mutants hợp lệ (Mẫu số)** | 9 | `Total - CompileError` (0 lỗi biên dịch harness) |
-| **Mutants bị tiêu diệt (Killed)** | 8 | Bị phát hiện và làm fail test bởi bộ Ground Truth |
-| **Mutants sống sót (Survived)** | 1 | `MUT_005` (Đổi điều kiện biên `>` thành `>=` tại trần giảm giá) |
-| **Mutation Score (%)** | **88.89%** | $\frac{8 + 0}{9 - 0} \times 100 = 88.89\%$ |
+| **Tổng số Mutants sinh ra** | 13 | Sinh bởi các toán tử AST Mutators syntax-safe |
+| **Mutants hợp lệ (Mẫu số)** | 13 | `Total - CompileError` (0 lỗi biên dịch harness) |
+| **Mutants bị tiêu diệt (Killed)** | 12 | Bị phát hiện và làm fail test bởi bộ Ground Truth |
+| **Mutants sống sót (Survived)** | 1 | `MUT_006` (Đổi điều kiện biên `>` thành `>=` tại trần giảm giá) |
+| **Mutation Score (%)** | **92.31%** | $\frac{12 + 0}{13 - 0} \times 100 = 92.31\%$ |
 
 #### Cơ chế Tinh Chỉnh Dẫn Dắt Bởi Đột Biến (Mutation-Guided Refinement):
 Đối với 52 mutants sống sót (Survived Mutants) trên toàn bộ benchmark, hệ thống tích hợp module `MutationGuidedRefiner` (`packages/core/src/mutation/mutation_refiner.ts`). Module này phân tích vị trí mutant (ví dụ: điều kiện biên `>=` vs `>`, kiểm tra giá trị âm/null) và tự động sinh bổ sung các test scenario hướng mục tiêu biên/phủ định (Boundary & Negation Tests) cùng Prompt phản hồi cho LLM, giúp nâng cao độ nhạy phát hiện lỗi của bộ test sinh ra.

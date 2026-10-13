@@ -22,7 +22,7 @@ Tài liệu này định nghĩa quy trình kiểm thử chấp nhận (User Acce
 |---|---|---|:---:|:---:|---|
 | **UAT-01** | **Kích hoạt Extension & CodeLens** | Mock Provider & Editor Text Document | ✅ ĐẠT | ⏳ Cần kiểm chứng thủ công trên Host | `ContextAwareCodeLensProvider` đăng ký selector `typescript` và `javascript`, sinh CodeLens tại class và method level. |
 | **UAT-02** | **Sinh Test theo Method (Method-Level Scoping)** | AST ContextExtractor & Prompt Strategy | ✅ ĐẠT | ⏳ Cần kiểm chứng thủ công trên Host | Trích xuất `targetMethodSlice` (tên method, visibility, parameters, returnType, signature) và đưa khối `=== TARGET METHOD UNDER TEST ===` vào AST summary. Đã có test tại `acceptance.test.ts:L185`. |
-| **UAT-03** | **An toàn Webview (XSS Protection & CSP)** | Webview HTML Generation & Nonce Test | ✅ ĐẠT | ✅ ĐẠT | Webview sử dụng `Content-Security-Policy` với cryptographic `nonce`, không dùng `innerHTML` cho mô tả từ LLM mà gán an toàn qua `textContent` và DOM API. Test tại `acceptance.test.ts:L59`. |
+| **UAT-03** | **An toàn Webview (XSS Protection & CSP)** | Webview HTML Generation & Nonce Test | ✅ ĐẠT | ⏳ Chờ kiểm chứng trên Extension Host | Webview sử dụng `Content-Security-Policy` với cryptographic `nonce`, không dùng `innerHTML` cho mô tả từ LLM mà gán an toàn qua `textContent` và DOM API. Test tại `acceptance.test.ts:L59`. |
 | **UAT-04** | **Hiển thị Traceability Trực quan** | Webview HTML & DOM Data Binding | ✅ ĐẠT | ⏳ Cần kiểm chứng thủ công trên Host | Mỗi kịch bản hiển thị Category tag, Badge `🎯 AC/BR Reference` và `➡️ Expected Behavior`. Đã cấu trúc schema `ScenarioItem` trong payload webview. |
 | **UAT-05** | **Tương tác Checkbox & Lọc Scenario (AST-based)** | TypeScript Compiler API AST Filter Test | ✅ ĐẠT | ⏳ Cần kiểm chứng thủ công trên Host | Sử dụng TypeScript AST (`ts.createSourceFile`) để nhận diện chính xác phạm vi statement của `it(...)`/`test(...)`, loại bỏ block không được tick mà không làm lệch comment hay brace. Test tại `acceptance.test.ts:L81`. |
 | **UAT-06** | **Chấp nhận & Lưu file an toàn (Traversal Defense)** | Host Target Path Resolution & Path Guard | ✅ ĐẠT | ⏳ Cần kiểm chứng thủ công trên Host | Host cố định `_targetOutputPath`, chặn path traversal `..` từ Webview payload. Chỉ ghi file vào workspace khi người dùng bấm chấp nhận. Test tại `acceptance.test.ts:L162`. |
@@ -34,7 +34,7 @@ Tài liệu này định nghĩa quy trình kiểm thử chấp nhận (User Acce
 
 ## 3. Lệnh Kiểm chứng Tự động trong CI / Docker
 
-Toàn bộ các lệnh dưới đây được tự động hóa qua GitHub Actions (`.github/workflows/ci.yml`) và có thể chạy độc lập trong container Docker `experiment-runner`:
+Toàn bộ các lệnh dưới đây được tự động hóa qua GitHub Actions (`.github/workflows/ci.yml`) (ngoại trừ lệnh số 5 `experiment:mutation --all` là benchmark chuyên sâu chạy độc lập/theo lịch do thời gian chạy ~7 phút), và có thể chạy độc lập trong container Docker `experiment-runner`:
 
 ```bash
 # 1. Typecheck TypeScript toàn bộ project

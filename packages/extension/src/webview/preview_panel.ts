@@ -20,6 +20,7 @@ export class TestPreviewPanel {
   private _lastTestCode?: string;
   private _lastScenarios?: ScenarioItem[];
   private _onAcceptCallback?: (testCode: string, outputPath: string) => void;
+  private _isReadOnly: boolean = false;
 
   public static createOrShow(extensionUri: any, initialData?: any): TestPreviewPanel {
     const column = vscode.window.activeTextEditor
@@ -28,6 +29,10 @@ export class TestPreviewPanel {
 
     if (TestPreviewPanel.currentPanel) {
       TestPreviewPanel.currentPanel._panel.reveal(column);
+      // Reset target path and callback when reusing panel to avoid stale destination leak
+      TestPreviewPanel.currentPanel._targetOutputPath = undefined;
+      TestPreviewPanel.currentPanel._onAcceptCallback = undefined;
+      TestPreviewPanel.currentPanel._isReadOnly = false;
       if (initialData) {
         TestPreviewPanel.currentPanel.sendData(initialData);
       }
@@ -56,6 +61,7 @@ export class TestPreviewPanel {
   public setTargetOutput(outputPath: string, onAccept?: (testCode: string, outputPath: string) => void): void {
     this._targetOutputPath = outputPath;
     this._onAcceptCallback = onAccept;
+    this._isReadOnly = false;
   }
 
   private constructor(panel: any, extensionUri: any) {
@@ -82,6 +88,11 @@ export class TestPreviewPanel {
 
         switch (msg.type) {
           case 'ACCEPT_TEST': {
+            if (this._isReadOnly) {
+              vscode.window.showWarningMessage('Không thể lưu mã trong chế độ chỉ xem (Read-only / Refinement)!');
+              return;
+            }
+
             // Host ưu tiên tuyệt đối target output path đã định, không cho phép webview ghi đè đường dẫn tùy ý
             const outputPath = this._targetOutputPath || msg.payload?.outputPath;
             let testCode = msg.payload?.testCode || this._lastTestCode || '';
@@ -100,10 +111,10 @@ export class TestPreviewPanel {
               return;
             }
 
-            // Kiểm tra bảo mật đường dẫn output path
+            // Kiểm tra bảo mật đường dẫn output path (ngăn chặn path traversal)
             const normalizedPath = path.normalize(outputPath);
             if (normalizedPath.includes('..') || (!path.isAbsolute(normalizedPath) && !this._targetOutputPath)) {
-              vscode.window.showErrorMessage('Đường dẫn lưu file không an toàn!');
+              vscode.window.showErrorMessage('Phát hiện đường dẫn không an toàn (Path Traversal)! Thao tác bị từ chối.');
               return;
             }
 
@@ -126,6 +137,20 @@ export class TestPreviewPanel {
             }
             break;
           }
+          case 'FILTER_SELECTION': {
+            if (this._lastTestCode && this._lastScenarios) {
+              const filtered = filterTestCodeByScenarios(
+                this._lastTestCode,
+                msg.payload?.selectedScenarioIds || [],
+                this._lastScenarios
+              );
+              this._panel.webview.postMessage({
+                type: 'UPDATE_FILTERED_CODE',
+                payload: { testCode: filtered },
+              });
+            }
+            break;
+          }
           case 'REJECT_TEST': {
             this.dispose();
             break;
@@ -143,11 +168,20 @@ export class TestPreviewPanel {
   }
 
   public sendData(data: HostToWebviewMessage['payload']): void {
-    if (data && 'testCode' in data && (data as any).testCode) {
-      this._lastTestCode = (data as any).testCode;
-    }
-    if (data && 'scenarios' in data && Array.isArray((data as any).scenarios)) {
-      this._lastScenarios = (data as any).scenarios;
+    if (data && typeof data === 'object') {
+      if ('isReadOnly' in data) {
+        this._isReadOnly = !!(data as any).isReadOnly;
+        if (this._isReadOnly) {
+          this._targetOutputPath = undefined;
+          this._onAcceptCallback = undefined;
+        }
+      }
+      if ('testCode' in data && (data as any).testCode) {
+        this._lastTestCode = (data as any).testCode;
+      }
+      if ('scenarios' in data && Array.isArray((data as any).scenarios)) {
+        this._lastScenarios = (data as any).scenarios;
+      }
     }
     this._panel.webview.postMessage({
       type: 'SET_PREVIEW_DATA',
@@ -377,49 +411,40 @@ export class TestPreviewPanel {
         currentFilteredCode = originalTestCode;
       } else if (selectedIds.length === 0) {
         currentFilteredCode = '// Không có kịch bản test nào được chọn\\n';
-      } else {
-        // Lọc hiển thị mã test đơn giản phía client
-        const lines = originalTestCode.split(/\\r?\\n/);
-        const out = [];
-        let inTest = false;
-        let keep = false;
-        let depth = 0;
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          const isTestStart = /^(?:it|test)\\s*\\(/i.test(trimmed);
-          if (!inTest && isTestStart) {
-            inTest = true;
-            depth = 0;
-            keep = selectedIds.some(id => line.includes(id));
-          }
-
-          if (inTest) {
-            for (const ch of line) {
-              if (ch === '{') depth++;
-              else if (ch === '}') depth--;
-            }
-            if (keep) out.push(line);
-            if (depth <= 0 && (line.includes(');') || line.includes('});'))) {
-              inTest = false;
-              keep = false;
-            }
-          } else {
-            out.push(line);
-          }
+        const codeElem = document.getElementById('codeContainer');
+        if (codeElem) {
+          codeElem.textContent = currentFilteredCode;
         }
-        currentFilteredCode = out.join('\\n');
+      } else {
+        // Gửi yêu cầu lọc tới Host AST Compiler API để đảm bảo 100% khớp với file lưu
+        vscode.postMessage({
+          type: 'FILTER_SELECTION',
+          payload: { selectedScenarioIds: selectedIds }
+        });
       }
 
       const codeElem = document.getElementById('codeContainer');
-      if (codeElem) {
+      if (codeElem && selectedIds.length === scenariosData.length) {
         codeElem.textContent = currentFilteredCode;
       }
     }
 
     window.addEventListener('message', (event) => {
       const message = event.data;
-      if (!message || message.type !== 'SET_PREVIEW_DATA') return;
+      if (!message) return;
+
+      if (message.type === 'UPDATE_FILTERED_CODE') {
+        if (message.payload && message.payload.testCode !== undefined) {
+          currentFilteredCode = message.payload.testCode;
+          const codeElem = document.getElementById('codeContainer');
+          if (codeElem) {
+            codeElem.textContent = currentFilteredCode;
+          }
+        }
+        return;
+      }
+
+      if (message.type !== 'SET_PREVIEW_DATA') return;
       const payload = message.payload;
       if (!payload) return;
 
@@ -440,6 +465,20 @@ export class TestPreviewPanel {
       }
       if (payload.syntaxValid !== undefined) {
         document.getElementById('syntaxStatus').textContent = payload.syntaxValid ? '✅ Hợp lệ' : '⚠️ Lỗi cú pháp';
+      }
+
+      // Điều khiển hiển thị và vô hiệu hóa nút Chấp nhận & Lưu file
+      const acceptBtn = document.getElementById('acceptBtn');
+      if (acceptBtn) {
+        if (payload.isReadOnly) {
+          acceptBtn.style.display = 'none';
+          acceptBtn.disabled = true;
+        } else {
+          acceptBtn.style.display = '';
+          const isPendingOrError = !payload.syntaxValid ||
+            (payload.testCode && (payload.testCode.startsWith('// ⏳') || payload.testCode.startsWith('// ❌')));
+          acceptBtn.disabled = !!isPendingOrError;
+        }
       }
 
       // Render Scenarios an toàn qua DOM API (chống XSS)

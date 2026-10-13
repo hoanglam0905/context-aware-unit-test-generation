@@ -114,6 +114,34 @@ describe('DiscountCalculatorService', () => {
       expect(filtered).not.toContain('TC-002');
       expect(filtered).not.toContain('TC-003');
     });
+
+    it('hỗ trợ lọc parameterized test cases sử dụng it.each và test.each', () => {
+      const parameterizedCode = `import { Calculator } from './service';
+describe('Calculator', () => {
+  it.each([
+    [1, 2, 3],
+    [2, 3, 5]
+  ])('TC-001: adds %i + %i to equal %i', (a, b, expected) => {
+    expect(a + b).toBe(expected);
+  });
+
+  test.each([
+    [10, 5, 5],
+  ])('TC-002: subtracts %i - %i', (a, b, expected) => {
+    expect(a - b).toBe(expected);
+  });
+});`;
+      const filtered = filterTestCodeByScenarios(
+        parameterizedCode,
+        ['TC-001'],
+        [
+          { id: 'TC-001', description: 'adds numbers' },
+          { id: 'TC-002', description: 'subtracts numbers' },
+        ]
+      );
+      expect(filtered).toContain('TC-001');
+      expect(filtered).not.toContain('TC-002');
+    });
   });
 
   describe('3. Mutation-Guided Refinement Engine Verification (Section 5)', () => {
@@ -166,6 +194,58 @@ describe('DiscountCalculatorService', () => {
       panel.setTargetOutput('/app/experiments/dataset/simple/s01_discount_calculator/test.ts');
       expect((panel as any)._targetOutputPath).toBe('/app/experiments/dataset/simple/s01_discount_calculator/test.ts');
     });
+
+    it('message handler từ chối path traversal payload độc hại và không ghi file', () => {
+      let messageHandler: ((msg: any) => void) | undefined;
+      const mockWebview = {
+        html: '',
+        onDidReceiveMessage: (fn: any) => { messageHandler = fn; },
+        postMessage: jest.fn(),
+      };
+      new (TestPreviewPanel as any)({ webview: mockWebview, onDidDispose: jest.fn() }, {});
+
+      expect(typeof messageHandler).toBe('function');
+      const onAcceptSpy = jest.fn();
+
+      // Gửi message ACCEPT_TEST với đường dẫn độc hại traversal '../'
+      messageHandler!({
+        type: 'ACCEPT_TEST',
+        payload: {
+          outputPath: '../../../../etc/passwd',
+          testCode: 'malicious payload',
+        },
+      });
+
+      expect(onAcceptSpy).not.toHaveBeenCalled();
+    });
+
+    it('message handler từ chối lưu file khi ở chế độ Read-Only (Refinement)', () => {
+      let messageHandler: ((msg: any) => void) | undefined;
+      const mockWebview = {
+        html: '',
+        onDidReceiveMessage: (fn: any) => { messageHandler = fn; },
+        postMessage: jest.fn(),
+      };
+      const panel = new (TestPreviewPanel as any)({ webview: mockWebview, onDidDispose: jest.fn() }, {});
+      const onAcceptSpy = jest.fn();
+      panel.setTargetOutput('/safe/path.test.ts', onAcceptSpy);
+
+      // Đưa panel vào chế độ read-only
+      panel.sendData({
+        isReadOnly: true,
+        testCode: '// Refinement feedback prompt',
+      });
+
+      // Thử bấm Accept trong chế độ read-only
+      messageHandler!({
+        type: 'ACCEPT_TEST',
+        payload: {
+          testCode: 'prompt should not overwrite test file',
+        },
+      });
+
+      expect(onAcceptSpy).not.toHaveBeenCalled();
+    });
   });
 
   describe('5. Method-Level Scoping Verification (Issue 4.2 & Section 5.3)', () => {
@@ -200,12 +280,22 @@ export class OrderService {
       expect(ctx.promptContext.targetMethodSlice?.methodName).toBe('calculateTotal');
       expect(ctx.promptContext.targetMethodSlice?.className).toBe('OrderService');
       expect(ctx.promptContext.targetMethodSlice?.returnType).toBe('number');
+      expect(ctx.promptContext.targetMethodSlice?.sourceSlice).toContain('return items.reduce');
       expect(ctx.promptContext.astSummary).toContain('=== TARGET METHOD UNDER TEST');
+    });
+
+    it('ContextExtractor ném lỗi rõ ràng khi targetMethodName không tồn tại trong mã nguồn', () => {
+      const { ContextExtractor } = require('../../core/src/extractor/context_extractor');
+      const extractor = new ContextExtractor();
+      const code = 'export class UserService { getUser() { return null; } }';
+      expect(() => {
+        extractor.extract({ serviceCode: code, targetMethodName: 'deleteUser' });
+      }).toThrow('Target method "deleteUser" was not found in service code.');
     });
   });
 
   describe('6. Extension Mutation Refinement Integration (Issue 4.5)', () => {
-    it('TestGenerationService có phương thức refineWithMutation và trả về kết quả gợi ý', async () => {
+    it('TestGenerationService có phương thức refineWithMutation và trả về kết quả gợi ý với mutant thật', async () => {
       const { TestGenerationService } = require('./services/test_generation_service');
       const service = new TestGenerationService();
       expect(typeof service.refineWithMutation).toBe('function');
@@ -221,6 +311,17 @@ export class OrderService {
       expect(Array.isArray(refinement.suggestedScenarios)).toBe(true);
       expect(typeof refinement.feedbackPrompt).toBe('string');
       expect(refinement.feedbackPrompt).toContain('MUTATION-GUIDED REFINEMENT FEEDBACK');
+      expect(refinement.survivedMutantsCount).toBe(1);
+    });
+
+    it('refineWithMutation từ chối tạo fake data và trả về undefined nếu dịch vụ chưa có mutation summary', async () => {
+      const { TestGenerationService } = require('./services/test_generation_service');
+      const service = new TestGenerationService();
+      const nonExistentUri = { fsPath: '/unknown/path/non_existent_service.ts' };
+      const extensionUri = { fsPath: require('path').resolve(__dirname, '..') };
+
+      const res = await service.refineWithMutation(nonExistentUri, extensionUri);
+      expect(res).toBeUndefined();
     });
   });
 });

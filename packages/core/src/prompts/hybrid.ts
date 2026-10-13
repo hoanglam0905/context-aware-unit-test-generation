@@ -33,7 +33,7 @@ You must output a structured JSON response matching the following schema:
 }`;
 
     const targetMethodInstruction = context.targetMethodSlice
-      ? `\n\n### METHOD-LEVEL FOCUS TARGET:\nTarget Class: ${context.targetMethodSlice.className ?? 'Service'}\nTarget Signature: ${context.targetMethodSlice.signature}\nGenerate unit tests exclusively verifying the behavior of this target method. Do not generate tests for other methods.\n`
+      ? `\n\n### METHOD-LEVEL FOCUS TARGET:\nTarget Class: ${context.targetMethodSlice.className ?? 'Service'}\nTarget Signature: ${context.targetMethodSlice.signature}${context.targetMethodSlice.sourceSlice ? `\nTarget Method Implementation:\n\`\`\`${lang.toLowerCase()}\n${context.targetMethodSlice.sourceSlice}\n\`\`\`` : ''}\nGenerate unit tests exclusively verifying the behavior of this target method. Do not generate tests for other methods.\n`
       : context.targetMethodName
         ? `\n\n### TARGET METHOD FOCUS:\nGenerate test cases exclusively for method: "${context.targetMethodName}()". Do not generate redundant test cases for other methods.\n`
         : '';

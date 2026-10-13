@@ -6,6 +6,7 @@ export type WebviewToHostMessage =
   | { type: 'ACCEPT_TEST'; payload?: { testCode?: string; outputPath?: string; selectedScenarioIds?: string[] } }
   | { type: 'REJECT_TEST' }
   | { type: 'TOGGLE_SCENARIO'; payload: { scenarioId: string; selected: boolean } }
+  | { type: 'FILTER_SELECTION'; payload?: { selectedScenarioIds?: string[] } }
   | { type: 'OPEN_SETTINGS' }
   | { type: 'RUN_COVERAGE'; payload: { testFilePath: string } };
 
@@ -14,11 +15,13 @@ export type WebviewToHostMessage =
  */
 export type HostToWebviewMessage =
   | { type: 'SET_LOADING'; payload: { isLoading: boolean; message?: string } }
+  | { type: 'UPDATE_FILTERED_CODE'; payload: { testCode: string } }
   | {
       type: 'SET_PREVIEW_DATA';
       payload: {
         serviceName: string;
         strategy: string;
+        isReadOnly?: boolean;
         scenarios: Array<{
           id: string;
           description: string;

@@ -10,7 +10,6 @@ import { ExtensionMetricsCollector } from './metrics_collector';
 import { TestPreviewPanel } from '../webview/preview_panel';
 import { vscode } from '../vscode_shim';
 import { MutationGuidedRefiner } from '../../../core/src/mutation/mutation_refiner';
-import { CodeMutatorGenerator } from '../../../core/src/mutation/mutators';
 import { MutationSummary } from '../../../core/src/mutation/types';
 
 export class TestGenerationService {
@@ -52,24 +51,31 @@ export class TestGenerationService {
     const config = this.configManager.getConfiguration();
 
     // 🔒 Kiểm tra chấp thuận quyền riêng tư (Explicit Privacy Consent) khi dùng Cloud LLM
-    const isCloud = ['gemini', 'openai', 'deepseek'].includes(config.modelProvider);
+    const provider = config.modelProvider.toLowerCase();
+    const isCloud = ['gemini', 'openai', 'deepseek'].includes(provider);
     if (isCloud) {
       const vsConfig = vscode.workspace.getConfiguration('contextAwareTestGen');
-      const hasConsented = vsConfig.get('privacyConsentAcknowledged', false) || !!process.env.PRIVACY_CONSENT_ACKNOWLEDGED;
+      const consentedProviders: string[] = vsConfig.get('consentedProviders', []) || [];
+      const envConsent = (process.env.PRIVACY_CONSENT_ACKNOWLEDGED || '').trim().toLowerCase();
+      const isEnvAcknowledged = envConsent === 'true' || envConsent === '1';
+      const hasConsented = consentedProviders.includes(provider) || isEnvAcknowledged;
+
       if (!hasConsented) {
         const choice = await vscode.window.showWarningMessage(
-          `🔒 [Quyền riêng tư] Bạn đang cấu hình sử dụng Cloud Provider (${config.modelProvider.toUpperCase()}). Toàn bộ mã nguồn file "${serviceFileName}" và tài liệu BA sẽ được truyền qua mạng Internet tới API của nhà cung cấp dịch vụ đám mây.\n\nBạn có đồng ý gửi dữ liệu này ra bên ngoài không?`,
+          `🔒 [Quyền riêng tư] Bạn đang cấu hình sử dụng Cloud Provider (${provider.toUpperCase()}). Toàn bộ mã nguồn file "${serviceFileName}" và tài liệu BA sẽ được truyền qua mạng Internet tới API của nhà cung cấp dịch vụ đám mây.\n\nBạn có đồng ý gửi dữ liệu này ra bên ngoài cho nhà cung cấp ${provider.toUpperCase()} không?`,
           { modal: true },
           'Đồng ý & Tiếp tục',
           'Hủy bỏ'
         );
 
         if (choice !== 'Đồng ý & Tiếp tục') {
-          vscode.window.showInformationMessage('Đã hủy bỏ yêu cầu sinh test do chưa nhận được sự đồng ý gửi dữ liệu tới Cloud.');
+          vscode.window.showInformationMessage(`Đã hủy bỏ yêu cầu sinh test do chưa nhận được sự đồng ý gửi dữ liệu tới ${provider.toUpperCase()}.`);
           return;
         }
 
         if (vsConfig.update) {
+          const updated = Array.from(new Set([...consentedProviders, provider]));
+          await vsConfig.update('consentedProviders', updated, vscode.ConfigurationTarget?.Global || 1);
           await vsConfig.update('privacyConsentAcknowledged', true, vscode.ConfigurationTarget?.Global || 1);
         }
       }
@@ -240,7 +246,8 @@ export class TestGenerationService {
 
   /**
    * Tinh chỉnh Unit Test bằng phản hồi đột biến (Mutation-Guided Refinement)
-   * Phân tích các mutants còn sống sót và tạo đề xuất kịch bản test bổ sung để tiêu diệt mutant.
+   * Phân tích các mutants còn sống sót từ kết quả kiểm thử đột biến thực tế
+   * và tạo đề xuất kịch bản test bổ sung để tiêu diệt mutant.
    */
   public async refineWithMutation(
     serviceUri: any,
@@ -248,6 +255,7 @@ export class TestGenerationService {
   ): Promise<any> {
     const serviceFilePath = serviceUri.fsPath;
     const serviceFileName = path.basename(serviceFilePath, path.extname(serviceFilePath));
+    const parentDirName = path.basename(path.dirname(serviceFilePath));
     const serviceCode = fs.existsSync(serviceFilePath) ? fs.readFileSync(serviceFilePath, 'utf-8') : '';
 
     if (!serviceCode) {
@@ -255,54 +263,67 @@ export class TestGenerationService {
       return undefined;
     }
 
-    // 1. Tải hoặc tính toán kết quả mutation summary
+    // 1. Tải kết quả mutation summary thực tế từ các vị trí hợp lệ
     let summary: MutationSummary | undefined;
-    const summaryFile = path.resolve(__dirname, '../../../../experiments/results/mutation_summary.json');
-    if (fs.existsSync(summaryFile)) {
-      try {
-        const rawData = JSON.parse(fs.readFileSync(summaryFile, 'utf-8'));
-        const allSummaries: MutationSummary[] = Array.isArray(rawData)
-          ? rawData
-          : rawData.services
-            ? Object.values(rawData.services).map((s: any) => s.groundTruth)
-            : [];
-        const matched = allSummaries.find((s) => s?.serviceId?.toLowerCase() === serviceFileName.toLowerCase());
-        if (matched) {
-          summary = matched;
-        }
-      } catch {
-        // Fallback
+    const candidatePaths = [
+      path.resolve(__dirname, '../../../../experiments/results/mutation_summary.json'),
+      path.resolve(__dirname, '../../../experiments/results/mutation_summary.json'),
+      path.resolve(process.cwd(), 'experiments/results/mutation_summary.json'),
+    ];
+
+    if (vscode.workspace?.workspaceFolders) {
+      for (const folder of vscode.workspace.workspaceFolders) {
+        candidatePaths.push(path.join(folder.uri.fsPath, 'experiments/results/mutation_summary.json'));
       }
     }
 
-    const mutator = new CodeMutatorGenerator();
-    const mutants = mutator.generateMutants(serviceCode, path.basename(serviceFilePath));
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const serviceNorm = normalize(serviceFileName);
+    const parentNorm = normalize(parentDirName);
 
-    const finalSummary: MutationSummary = summary || {
-      serviceId: serviceFileName,
-      strategy: 'ground-truth',
-      totalMutants: mutants.length,
-      validMutants: mutants.length,
-      killedMutants: Math.max(0, mutants.length - 2),
-      survivedMutants: Math.min(2, mutants.length),
-      compileErrorMutants: 0,
-      timeoutMutants: 0,
-      mutationScore: mutants.length > 0 ? ((mutants.length - 2) / mutants.length) * 100 : 100,
-      durationMs: 300,
-      results: mutants.slice(0, 2).map((m) => ({
-        mutant: m,
-        status: 'SURVIVED' as const,
-        durationMs: 150,
-      })),
-    };
+    for (const candPath of candidatePaths) {
+      if (fs.existsSync(candPath)) {
+        try {
+          const rawData = JSON.parse(fs.readFileSync(candPath, 'utf-8'));
+          const allSummaries: MutationSummary[] = Array.isArray(rawData)
+            ? rawData
+            : rawData.services
+              ? Object.values(rawData.services).map((s: any) => s.groundTruth || s)
+              : [];
+
+          const matched = allSummaries.find((s) => {
+            const sid = normalize(s?.serviceId || '');
+            return sid === serviceNorm || sid === parentNorm;
+          });
+
+          if (matched) {
+            summary = matched;
+            break;
+          }
+        } catch {
+          // Bỏ qua lỗi đọc file không hợp lệ
+        }
+      }
+    }
+
+    // Nếu không tìm thấy kết quả kiểm thử đột biến thật, thông báo rõ ràng cho người dùng
+    // TUYỆT ĐỐI KHÔNG BỊA ĐẶT / FABRICATE SỐ LIỆU GIẢ LẬP
+    if (!summary) {
+      vscode.window.showWarningMessage(
+        `Chưa có kết quả kiểm thử đột biến (Mutation Summary) cho dịch vụ "${serviceFileName}". Vui lòng chạy "npm run experiment:mutation" trước để phân tích mutants còn sống sót thật sự!`
+      );
+      return undefined;
+    }
 
     const refiner = new MutationGuidedRefiner();
-    const refinement = refiner.analyzeAndSuggestRefinement(finalSummary, serviceCode);
+    const refinement = refiner.analyzeAndSuggestRefinement(summary, serviceCode);
 
-    // 2. Hiển thị kết quả lên Preview Panel để nhà phát triển xem xét và bổ sung test cases
-    const panel = TestPreviewPanel.createOrShow(extensionUri, {
-      serviceName: `${serviceFileName} (Mutation Refinement)`,
+    // 2. Hiển thị kết quả lên Preview Panel ở chế độ CHỈ XEM (READ-ONLY)
+    // Ngăn chặn hoàn toàn việc ghi đè prompt phản hồi lên file test thật
+    TestPreviewPanel.createOrShow(extensionUri, {
+      serviceName: `${serviceFileName} (Mutation Refinement - Read Only)`,
       strategy: 'mutation-refinement',
+      isReadOnly: true,
       scenarios: refinement.suggestedScenarios.map((s) => ({
         id: s.id,
         description: s.description,
@@ -313,7 +334,8 @@ export class TestGenerationService {
       })),
       testCode: `// 🧬 MUTATION-GUIDED REFINEMENT CHO: ${serviceFileName}\n` +
         `// 🎯 Mutation Score ban đầu: ${refinement.initialMutationScore.toFixed(1)}%\n` +
-        `// ⚠️ Số Mutants còn sống sót (Survived): ${refinement.survivedMutantsCount}\n\n` +
+        `// ⚠️ Số Mutants còn sống sót (Survived): ${refinement.survivedMutantsCount}\n` +
+        `// ℹ️ Chế độ xem phản hồi (Read-Only) - Không ghi đè lên file test hiện có\n\n` +
         refinement.feedbackPrompt,
       syntaxValid: true,
     });
