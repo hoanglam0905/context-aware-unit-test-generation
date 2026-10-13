@@ -16,7 +16,7 @@
     "dataset:validate": "ts-node experiments/dataset/validate_dataset.ts",
     "dataset:export": "ts-node experiments/dataset/export_fine_tuning_dataset.ts",
     "compile:extension": "tsc -p packages/extension/tsconfig.json",
-    "package:extension": "cd packages/extension && npx @vscode/vsce package --no-dependencies"
+    "package:extension": "cd packages/extension && npx @vscode/vsce package --no-dependencies --skip-license"
   },
   "dependencies": {
     "dotenv": "^16.6.1"

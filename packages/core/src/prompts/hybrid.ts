@@ -32,9 +32,11 @@ You must output a structured JSON response matching the following schema:
   "testCode": "PUT_ACTUAL_FULL_EXECUTABLE_TEST_CODE_HERE"
 }`;
 
-    const targetMethodInstruction = context.targetMethodName
-      ? `\n\n### TARGET METHOD FOCUS:\nGenerate test cases exclusively for method: "${context.targetMethodName}()". Do not generate redundant test cases for other methods.\n`
-      : '';
+    const targetMethodInstruction = context.targetMethodSlice
+      ? `\n\n### METHOD-LEVEL FOCUS TARGET:\nTarget Class: ${context.targetMethodSlice.className ?? 'Service'}\nTarget Signature: ${context.targetMethodSlice.signature}\nGenerate unit tests exclusively verifying the behavior of this target method. Do not generate tests for other methods.\n`
+      : context.targetMethodName
+        ? `\n\n### TARGET METHOD FOCUS:\nGenerate test cases exclusively for method: "${context.targetMethodName}()". Do not generate redundant test cases for other methods.\n`
+        : '';
 
     const userPrompt = `### 1. BUSINESS REQUIREMENT SPECIFICATION (from Business Analyst):
 ${context.requirementDoc || 'No explicit BA requirement document provided. Rely on inferred code logic.'}

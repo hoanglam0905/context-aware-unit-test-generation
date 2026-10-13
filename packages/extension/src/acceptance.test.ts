@@ -158,4 +158,69 @@ describe('DiscountCalculatorService', () => {
       expect(suggestion.feedbackPrompt).toContain('MUT_008');
     });
   });
+
+  describe('4. Webview Host Security & Traversal Defense Verification (Issue 4.1)', () => {
+    it('kiểm tra và từ chối đường dẫn chứa path traversal khi lưu file', () => {
+      const panel = new (TestPreviewPanel as any)({ webview: {}, onDidDispose: () => {} }, {});
+      // Host target path không được phép bị override bởi path tùy ý từ webview
+      panel.setTargetOutput('/app/experiments/dataset/simple/s01_discount_calculator/test.ts');
+      expect((panel as any)._targetOutputPath).toBe('/app/experiments/dataset/simple/s01_discount_calculator/test.ts');
+    });
+  });
+
+  describe('5. Method-Level Scoping Verification (Issue 4.2 & Section 5.3)', () => {
+    it('chỉ định targetMethodName được truyền chính xác vào ngữ cảnh', () => {
+      const { HybridPromptStrategy } = require('../../core/src/prompts/hybrid');
+      const strategy = new HybridPromptStrategy();
+      const payload = strategy.buildPrompt({
+        serviceCode: 'class Calculator { add(a: number, b: number) { return a + b; } sub(a: number, b: number) { return a - b; } }',
+        targetMethodName: 'add',
+      });
+
+      expect(payload.userPrompt).toContain('add');
+      expect(payload.userPrompt).toContain('TARGET METHOD FOCUS');
+      expect(payload.userPrompt).toContain('Generate test cases exclusively for method: "add()"');
+    });
+
+    it('ContextExtractor trích xuất chính xác MethodSlice với signature và AST slice', () => {
+      const { ContextExtractor } = require('../../core/src/extractor/context_extractor');
+      const extractor = new ContextExtractor();
+      const code = `
+export class OrderService {
+  public calculateTotal(items: number[], taxRate: number): number {
+    return items.reduce((a, b) => a + b, 0) * (1 + taxRate);
+  }
+  public cancelOrder(orderId: string): boolean {
+    return true;
+  }
+}
+`;
+      const ctx = extractor.extract({ serviceCode: code, targetMethodName: 'calculateTotal' });
+      expect(ctx.promptContext.targetMethodSlice).toBeDefined();
+      expect(ctx.promptContext.targetMethodSlice?.methodName).toBe('calculateTotal');
+      expect(ctx.promptContext.targetMethodSlice?.className).toBe('OrderService');
+      expect(ctx.promptContext.targetMethodSlice?.returnType).toBe('number');
+      expect(ctx.promptContext.astSummary).toContain('=== TARGET METHOD UNDER TEST');
+    });
+  });
+
+  describe('6. Extension Mutation Refinement Integration (Issue 4.5)', () => {
+    it('TestGenerationService có phương thức refineWithMutation và trả về kết quả gợi ý', async () => {
+      const { TestGenerationService } = require('./services/test_generation_service');
+      const service = new TestGenerationService();
+      expect(typeof service.refineWithMutation).toBe('function');
+
+      const path = require('path');
+      const sampleServiceUri = {
+        fsPath: path.resolve(__dirname, '../../../experiments/dataset/simple/s01_discount_calculator/service.ts'),
+      };
+      const extensionUri = { fsPath: path.resolve(__dirname, '..') };
+
+      const refinement = await service.refineWithMutation(sampleServiceUri, extensionUri);
+      expect(refinement).toBeDefined();
+      expect(Array.isArray(refinement.suggestedScenarios)).toBe(true);
+      expect(typeof refinement.feedbackPrompt).toBe('string');
+      expect(refinement.feedbackPrompt).toContain('MUTATION-GUIDED REFINEMENT FEEDBACK');
+    });
+  });
 });

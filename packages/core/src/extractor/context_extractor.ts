@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { PromptContext } from '../prompts/types';
+import { PromptContext, MethodSlice } from '../prompts/types';
 import { UniversalCodeParser } from './universal_ast_parser';
 import { RequirementParser } from './requirement_parser';
 import { LanguageDetector } from './language_detector';
@@ -50,10 +50,44 @@ export class ContextExtractor {
       requirementContext = this.reqParser.parse(rawRequirement);
     }
 
-    // 3. Xác định target class & target methods
-    const mainClass = options.targetClassName
-      ? codeContext.classes.find((c) => c.name === options.targetClassName)
-      : codeContext.classes[0];
+    // 3. Trích xuất Method Slice nếu có targetMethodName
+    let targetMethodSlice: MethodSlice | undefined;
+    if (options.targetMethodName) {
+      for (const cls of codeContext.classes) {
+        const found = cls.methods.find((m) => m.name === options.targetMethodName);
+        if (found) {
+          const paramsStr = found.parameters.map((p) => `${p.name}: ${p.type}`).join(', ');
+          targetMethodSlice = {
+            className: cls.name,
+            methodName: found.name,
+            visibility: found.visibility,
+            parameters: found.parameters,
+            returnType: found.returnType,
+            signature: `${found.visibility ?? 'public'} ${found.name}(${paramsStr}): ${found.returnType}`,
+          };
+          break;
+        }
+      }
+
+      if (!targetMethodSlice) {
+        const foundFunc = codeContext.functions.find((f) => f.name === options.targetMethodName);
+        if (foundFunc) {
+          const paramsStr = foundFunc.parameters.map((p) => `${p.name}: ${p.type}`).join(', ');
+          targetMethodSlice = {
+            methodName: foundFunc.name,
+            parameters: foundFunc.parameters,
+            returnType: foundFunc.returnType,
+            signature: `function ${foundFunc.name}(${paramsStr}): ${foundFunc.returnType}`,
+          };
+        }
+      }
+    }
+
+    const mainClass = targetMethodSlice?.className
+      ? codeContext.classes.find((c) => c.name === targetMethodSlice.className)
+      : options.targetClassName
+        ? codeContext.classes.find((c) => c.name === options.targetClassName)
+        : codeContext.classes[0];
 
     const targetClassName = mainClass ? mainClass.name : undefined;
     const targetMethodNames = options.targetMethodName
@@ -63,7 +97,7 @@ export class ContextExtractor {
         : codeContext.functions.map((f) => f.name);
 
     // 4. Tạo AST Summary
-    const astSummary = this.buildAstSummary(codeContext);
+    const astSummary = this.buildAstSummary(codeContext, targetMethodSlice);
 
     // 5. Tạo PromptContext chuẩn hóa tương thích với LLM Prompt Strategy
     const promptContext: PromptContext = {
@@ -72,6 +106,7 @@ export class ContextExtractor {
       existingTestPatterns: options.existingTestPatterns,
       className: targetClassName,
       targetMethodName: options.targetMethodName,
+      targetMethodSlice,
       sourceLanguage: langInfo.name,
       testFramework: langInfo.defaultTestFramework,
       astSummary,
@@ -94,8 +129,14 @@ export class ContextExtractor {
   /**
    * Tạo tóm tắt cấu trúc AST (Classes, methods, properties, signatures) cho Prompt
    */
-  public buildAstSummary(codeContext: CodeContext): string {
+  public buildAstSummary(codeContext: CodeContext, targetMethodSlice?: MethodSlice): string {
     const lines: string[] = [];
+    if (targetMethodSlice) {
+      lines.push('=== TARGET METHOD UNDER TEST (METHOD-LEVEL SCOPE) ===');
+      lines.push(`Focus Class: ${targetMethodSlice.className ?? 'Global'}`);
+      lines.push(`Focus Signature: ${targetMethodSlice.signature}`);
+      lines.push('=====================================================\n');
+    }
     if (codeContext.classes && codeContext.classes.length > 0) {
       lines.push('Classes:');
       for (const cls of codeContext.classes) {

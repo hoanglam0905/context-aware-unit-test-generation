@@ -82,8 +82,9 @@ export class TestPreviewPanel {
 
         switch (msg.type) {
           case 'ACCEPT_TEST': {
+            // Host ưu tiên tuyệt đối target output path đã định, không cho phép webview ghi đè đường dẫn tùy ý
+            const outputPath = this._targetOutputPath || msg.payload?.outputPath;
             let testCode = msg.payload?.testCode || this._lastTestCode || '';
-            const outputPath = msg.payload?.outputPath || this._targetOutputPath;
 
             // Nếu webview gửi danh sách scenario được chọn, lọc mã test phía host để đảm bảo tính toàn vẹn
             if (msg.payload?.selectedScenarioIds && this._lastScenarios && this._lastTestCode) {
@@ -101,7 +102,7 @@ export class TestPreviewPanel {
 
             // Kiểm tra bảo mật đường dẫn output path
             const normalizedPath = path.normalize(outputPath);
-            if (normalizedPath.includes('..') && !path.isAbsolute(normalizedPath)) {
+            if (normalizedPath.includes('..') || (!path.isAbsolute(normalizedPath) && !this._targetOutputPath)) {
               vscode.window.showErrorMessage('Đường dẫn lưu file không an toàn!');
               return;
             }

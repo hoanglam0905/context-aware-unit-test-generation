@@ -1,56 +1,46 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 on:
   push:
-    branches: [ main, develop, 'feature/**' ]
+    branches: [ main, 'feature/**' ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
 
 jobs:
-  # Job 1: Kiểm tra biên dịch mã nguồn TypeScript & Chạy Unit Tests + Coverage
-  test-and-coverage:
-    name: Build, Test & Coverage
+  validate-and-package:
+    name: Build, Test & Package Extension
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [20.x]
-
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js (v20)
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 20
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: npm ci
 
-      - name: Type check (TypeScript)
+      - name: TypeScript Typecheck
         run: npx tsc --noEmit
 
-      - name: Run Jest Unit Tests with Coverage
-        run: npm run test:coverage
+      - name: Compile VS Code Extension
+        run: npm run compile:extension
 
-      - name: Upload Coverage Report Artifact
+      - name: Run Monorepo Test Suites
+        run: npm test
+
+      - name: Validate Dataset & Ground Truth
+        run: npm run dataset:validate
+
+      - name: Package VS Code Extension (VSIX)
+        run: npm run package:extension
+
+      - name: Upload VSIX Artifact
         uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: coverage-report
-          path: coverage/
-          retention-days: 7
-
-  # Job 2: Kiểm tra tính toàn vẹn của Docker build
-  docker-build:
-    name: Verify Docker Image Build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Build Docker image
-        run: docker build -t context-aware-testgen:ci-test -f Dockerfile .
+          name: context-aware-unit-test-generation-extension
+          path: packages/extension/*.vsix

@@ -49,7 +49,7 @@ Trong quy trình phát triển phần mềm, **kiểm thử (testing)** chiếm 
 - **Input:** Requirement dạng User Story, SRS document, hoặc source code (service/controller)
 - **Output:** Bộ test scenario + test case + test code (unit test / integration test)
 - **LLM sử dụng:** GPT-4o, Claude Sonnet, Gemini Pro, DeepSeek Coder (so sánh)
-- **Ngôn ngữ target:** TypeScript/JavaScript (Jest), Java (JUnit), Python (pytest)
+- **Ngôn ngữ target:** TypeScript/JavaScript (Jest - đã kiểm chứng toàn diện End-to-End); Java (JUnit 5), Python (pytest), Go, C# (Universal AST Parser prototypes).
 - **Ứng dụng:** VS Code Extension context-aware
 
 ---

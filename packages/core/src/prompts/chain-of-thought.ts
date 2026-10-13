@@ -31,9 +31,11 @@ Format your response in two clear sections:
         ? `\n\n### Business Requirements (Reference):\n${context.requirementDoc}`
         : '';
 
-    const targetMethodSection = context.targetMethodName
-      ? `\n\n### Target Method Focus:\nExecute step-by-step reasoning specifically for method: "${context.targetMethodName}()".`
-      : '';
+    const targetMethodSection = context.targetMethodSlice
+      ? `\n\n### Target Method Focus (Method-Level Scope):\nTarget Signature: ${context.targetMethodSlice.signature}\nExecute step-by-step reasoning specifically for this method.`
+      : context.targetMethodName
+        ? `\n\n### Target Method Focus:\nExecute step-by-step reasoning specifically for method: "${context.targetMethodName}()".`
+        : '';
 
     const userPrompt = `Perform Step-by-Step Chain-of-Thought analysis and generate a complete test suite for:${astSection}${reqSection}${targetMethodSection}
 

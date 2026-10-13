@@ -34,6 +34,7 @@
   "activationEvents": [
     "onCommand:contextAwareTestGen.generateTest",
     "onCommand:contextAwareTestGen.generateTestForMethod",
+    "onCommand:contextAwareTestGen.refineWithMutation",
     "onCommand:contextAwareTestGen.openSettings",
     "onCommand:contextAwareTestGen.openSidebar",
     "onLanguage:typescript",
@@ -48,6 +49,17 @@
         "icon": "$(beaker)"
       },
       {
+        "command": "contextAwareTestGen.generateTestForMethod",
+        "title": "Context-Aware: Generate Test for Specific Method",
+        "category": "Test Generation"
+      },
+      {
+        "command": "contextAwareTestGen.refineWithMutation",
+        "title": "Context-Aware: Refine Unit Tests with Mutation Feedback",
+        "category": "Test Generation",
+        "icon": "$(zap)"
+      },
+      {
         "command": "contextAwareTestGen.openSettings",
         "title": "Context-Aware: Open Settings",
         "category": "Test Generation",
@@ -56,11 +68,6 @@
       {
         "command": "contextAwareTestGen.openSidebar",
         "title": "Context-Aware: Focus Sidebar",
-        "category": "Test Generation"
-      },
-      {
-        "command": "contextAwareTestGen.generateTestForMethod",
-        "title": "Context-Aware: Generate Test for Specific Method",
         "category": "Test Generation"
       }
     ],

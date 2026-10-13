@@ -32,7 +32,7 @@ export class RealtimeDocumentWatcher {
    */
   public handleDocumentSaved(document: any, extensionUri: any): void {
     const config = vscode.workspace.getConfiguration('contextAwareTestGen');
-    const autoGenOnSave = config.get('autoGenerateOnSave', true);
+    const autoGenOnSave = config.get('autoGenerateOnSave', false);
     if (!autoGenOnSave) return;
 
     const filePath = document.fileName || document.uri?.fsPath || '';

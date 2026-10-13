@@ -2,7 +2,7 @@ import { Mutant, MutatorType } from './types';
 
 export class CodeMutatorGenerator {
   /**
-   * Sinh danh sách các Mutants từ mã nguồn gốc
+   * Sinh danh sách các Mutants từ mã nguồn gốc đảm bảo tính hợp lệ cú pháp TypeScript
    */
   public generateMutants(sourceCode: string, fileName = 'service.ts'): Mutant[] {
     const mutants: Mutant[] = [];
@@ -13,12 +13,18 @@ export class CodeMutatorGenerator {
       const line = lines[lineIdx];
       const trimmed = line.trim();
 
-      // Bỏ qua comment, import và khai báo RegExp literal
+      // Bỏ qua comment, import, interface, type alias, enum và regex literal
       if (
         trimmed.startsWith('//') ||
         trimmed.startsWith('/*') ||
         trimmed.startsWith('*') ||
         trimmed.startsWith('import ') ||
+        trimmed.startsWith('export interface ') ||
+        trimmed.startsWith('interface ') ||
+        trimmed.startsWith('export type ') ||
+        trimmed.startsWith('type ') ||
+        trimmed.startsWith('export enum ') ||
+        trimmed.startsWith('enum ') ||
         /=\s*\/.*\/[a-z]*;?$/.test(trimmed) ||
         trimmed.length === 0
       ) {
@@ -26,7 +32,12 @@ export class CodeMutatorGenerator {
       }
 
       // 1. Conditional Boundary Mutators (<, <=, >, >=)
-      if (/[<>]/.test(line)) {
+      // Loại trừ các generic type parameter dạng <Type>, Promise<User>, Map<string, any>
+      const codeWithoutGenerics = line.replace(/<[A-Za-z0-9_,\s<>[\]|&?]+>/g, ' ');
+      const codeWithoutArrows = codeWithoutGenerics.replace(/=>/g, ' ');
+      const isComparisonContext = /\b(if|while|for|return|throw|const|let|var)\b|[?:]/.test(line);
+
+      if (isComparisonContext && /[<>]/.test(codeWithoutArrows)) {
         const boundaryMutations: Array<{ pattern: RegExp; replace: string; desc: string }> = [
           { pattern: />=/g, replace: '>', desc: 'Thay đổi điều kiện biên >= thành >' },
           { pattern: /<=/g, replace: '<', desc: 'Thay đổi điều kiện biên <= thành <' },
@@ -36,6 +47,7 @@ export class CodeMutatorGenerator {
 
         for (const m of boundaryMutations) {
           if (m.pattern.test(line)) {
+            // Đảm bảo không thay thế nhầm bên trong type annotation
             const mutatedLine = line.replace(m.pattern, m.replace);
             if (mutatedLine !== line) {
               mutants.push(
@@ -87,8 +99,12 @@ export class CodeMutatorGenerator {
 
       // 3. Binary Expressions (+, -, *, /)
       if (/[+\-*\/]/.test(line) && !line.includes('//')) {
+        // Không biến đổi phép cộng chuỗi để tránh lỗi kiểu TypeScript: 'string - string'
+        const hasStringLiteral = /['"`]/.test(line);
         const binaryMutations: Array<{ pattern: RegExp; replace: string; desc: string }> = [
-          { pattern: /(?<=\s)\+(?=\s)/g, replace: '-', desc: 'Đổi phép cộng (+) thành phép trừ (-)' },
+          ...(!hasStringLiteral
+            ? [{ pattern: /(?<=\s)\+(?=\s)/g, replace: '-', desc: 'Đổi phép cộng (+) thành phép trừ (-)' }]
+            : []),
           { pattern: /(?<=\s)\-(?=\s)/g, replace: '+', desc: 'Đổi phép trừ (-) thành phép cộng (+)' },
           { pattern: /(?<=\s)\*(?=\s)/g, replace: '/', desc: 'Đổi phép nhân (*) thành phép chia (/)' },
         ];
@@ -144,38 +160,52 @@ export class CodeMutatorGenerator {
         }
       }
 
-      // 5. Numeric Literals (e.g. 0.15 -> 0.10, 500000 -> 0)
-      if (/\b0\.\d+\b|\b\d{4,}\b/.test(line)) {
-        if (/0\.15/.test(line)) {
-          const mutatedLine = line.replace(/0\.15/, '0.10');
-          mutants.push(
-            this.createMutant(
-              `MUT_${String(mutantCounter++).padStart(3, '0')}`,
-              'NUMERIC_LITERAL',
-              fileName,
-              lineIdx + 1,
-              line,
-              mutatedLine,
-              lines,
-              lineIdx,
-              'Thay đổi tỉ lệ chiết khấu 0.15 thành 0.10'
-            )
-          );
-        } else if (/500000/.test(line)) {
-          const mutatedLine = line.replace(/500000/, '100000');
-          mutants.push(
-            this.createMutant(
-              `MUT_${String(mutantCounter++).padStart(3, '0')}`,
-              'NUMERIC_LITERAL',
-              fileName,
-              lineIdx + 1,
-              line,
-              mutatedLine,
-              lines,
-              lineIdx,
-              'Thay đổi trần giảm giá tối đa 500000 thành 100000'
-            )
-          );
+      // 5. Numeric Literals
+      if (/\b\d+(\.\d+)?\b/.test(line) && !line.includes('//')) {
+        // A. Tỉ lệ thập phân (ví dụ: 0.15, 0.20, 0.05)
+        const decimalMatch = line.match(/\b0\.(\d+)\b/);
+        if (decimalMatch) {
+          const val = parseFloat(decimalMatch[0]);
+          const mutatedVal = (val > 0.05 ? val - 0.05 : val + 0.05).toFixed(2);
+          const mutatedLine = line.replace(decimalMatch[0], mutatedVal);
+          if (mutatedLine !== line) {
+            mutants.push(
+              this.createMutant(
+                `MUT_${String(mutantCounter++).padStart(3, '0')}`,
+                'NUMERIC_LITERAL',
+                fileName,
+                lineIdx + 1,
+                line,
+                mutatedLine,
+                lines,
+                lineIdx,
+                `Thay đổi tỉ lệ thập phân ${decimalMatch[0]} thành ${mutatedVal}`
+              )
+            );
+          }
+        }
+
+        // B. Hằng số ngưỡng số nguyên (ví dụ: 500000, 1000000, 10000)
+        const largeIntMatch = line.match(/\b([1-9]\d{3,})\b/);
+        if (largeIntMatch) {
+          const val = parseInt(largeIntMatch[0], 10);
+          const mutatedVal = String(Math.floor(val / 2));
+          const mutatedLine = line.replace(largeIntMatch[0], mutatedVal);
+          if (mutatedLine !== line) {
+            mutants.push(
+              this.createMutant(
+                `MUT_${String(mutantCounter++).padStart(3, '0')}`,
+                'NUMERIC_LITERAL',
+                fileName,
+                lineIdx + 1,
+                line,
+                mutatedLine,
+                lines,
+                lineIdx,
+                `Thay đổi ngưỡng số học ${largeIntMatch[0]} thành ${mutatedVal}`
+              )
+            );
+          }
         }
       }
     }

@@ -66,7 +66,20 @@ export function activate(context: any): void {
     }
   );
 
-  // 6. Đăng ký Command mở cài đặt Extension
+  // 6. Đăng ký Command tinh chỉnh Unit Test bằng Mutation Feedback
+  const refineWithMutationCommand = vscode.commands.registerCommand(
+    'contextAwareTestGen.refineWithMutation',
+    async (uri?: any) => {
+      const targetUri = uri || vscode.window.activeTextEditor?.document?.uri;
+      if (!targetUri) {
+        vscode.window.showWarningMessage('Vui lòng mở file Service (.ts / .js) để tinh chỉnh với Mutation Feedback!');
+        return;
+      }
+      await testGenService.refineWithMutation(targetUri, context.extensionUri);
+    }
+  );
+
+  // 7. Đăng ký Command mở cài đặt Extension
   const openSettingsCommand = vscode.commands.registerCommand(
     'contextAwareTestGen.openSettings',
     () => {
@@ -77,7 +90,7 @@ export function activate(context: any): void {
     }
   );
 
-  // 7. Đăng ký Status Bar Item
+  // 8. Đăng ký Status Bar Item
   statusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
     100
@@ -90,6 +103,7 @@ export function activate(context: any): void {
   context.subscriptions.push(
     generateTestCommand,
     generateTestMethodCommand,
+    refineWithMutationCommand,
     openSettingsCommand,
     statusBarItem
   );

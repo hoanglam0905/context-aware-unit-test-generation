@@ -95,6 +95,18 @@ Chính vì vậy, đề tài **"Context-Aware Unit Test Generation"** ra đời 
    - **MutationRunner Engine (AST Mutators):** Bộ đột biến mã nguồn dựa trên AST (Toán tử so sánh, điều kiện biên, logic, số học) và chạy Jest kiểm thử để đo Mutation Score thực nghiệm thực tế.
    - **Jest Runner API:** Đo đạc Line Coverage & Branch Coverage tự động.
 
+### 4.1. Ma trận Hỗ trợ Ngôn ngữ & Phân định Phạm vi (Language Support Matrix)
+
+Để đảm bảo tính khoa học và minh bạch giữa các tính năng đã kiểm chứng hoàn chỉnh và các module prototype:
+
+| Ngôn ngữ / Hệ sinh thái | Phân tích AST | Sinh Prompt theo BA | Kiểm tra cú pháp (Syntax Validation) | Test Runner & Coverage | Benchmark Dataset | Trạng thái Hiện thực & Kiểm chứng |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **TypeScript / JavaScript** | ✅ Đầy đủ (TS API & Babel) | ✅ Đầy đủ (4 Strategies) | ✅ TS Compiler API | ✅ Jest Runner tự động | ✅ 15 Services (133 tests) | **Triển khai & Kiểm chứng Toàn diện (End-to-End)** |
+| **Python** | ✅ Universal AST Parser | ✅ Hỗ trợ Prompt | ⚠️ Cơ bản | ⏳ Dự kiến pytest | ⏳ Future Work | **Prototype phân tích cú pháp (Parser Prototype)** |
+| **Java** | ✅ Universal AST Parser | ✅ Hỗ trợ Prompt | ⚠️ Cơ bản | ⏳ Dự kiến JUnit 5 | ⏳ Future Work | **Prototype phân tích cú pháp (Parser Prototype)** |
+| **Go** | ✅ Universal AST Parser | ✅ Hỗ trợ Prompt | ⚠️ Cơ bản | ⏳ Dự kiến `go test` | ⏳ Demo PoC (`examples/go_demo/`) | **Prototype phân tích cú pháp & PoC Demo** |
+| **C#** | ✅ Universal AST Parser | ✅ Hỗ trợ Prompt | ⚠️ Cơ bản | ⏳ Dự kiến xUnit/NUnit | ⏳ Future Work | **Prototype phân tích cú pháp (Parser Prototype)** |
+
 ---
 
 ## 5. KIẾN TRÚC HỆ THỐNG & LUỒNG XỬ LÝ (ARCHITECTURE & CODE FLOW)
@@ -430,25 +442,29 @@ Kết quả đo đạc thực nghiệm toàn diện trên toàn bộ **15/15 d�
 
 | Service ID | Phân loại (Tier) | Tổng Mutants | Hợp lệ (Mẫu số) | Tiêu diệt (Killed) | Sống sót (Survived) | Lỗi biên dịch | **Mutation Score (%)** |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **S01_DiscountCalculator** | Simple | 9 | 9 | 8 | 1 | 0 | **88.89%** |
+| **S01_DiscountCalculator** | Simple | 13 | 13 | 12 | 1 | 0 | **92.31%** |
 | **S02_PasswordValidator** | Simple | 8 | 8 | 5 | 3 | 0 | **62.50%** |
-| **S03_ShippingFeeCalculator** | Simple | 21 | 21 | 16 | 5 | 0 | **76.19%** |
-| **S04_TaxCalculator** | Simple | 14 | 12 | 9 | 3 | 2 | **75.00%** |
-| **S05_SlugGenerator** | Simple | 5 | 3 | 1 | 2 | 2 | **33.33%** |
-| **S06_AuthService** | Medium | 14 | 3 | 3 | 0 | 11 | **100.00%** |
-| **S07_CartService** | Medium | 27 | 13 | 10 | 3 | 14 | **76.92%** |
-| **S08_CouponService** | Medium | 18 | 8 | 3 | 5 | 10 | **37.50%** |
-| **S09_NotificationService** | Medium | 17 | 5 | 1 | 4 | 12 | **20.00%** |
-| **S10_UserProfileService** | Medium | 26 | 6 | 3 | 3 | 20 | **50.00%** |
-| **S11_PaymentService** | Complex | 22 | 3 | 3 | 0 | 19 | **100.00%** |
-| **S12_OrderFulfillmentService** | Complex | 32 | 4 | 4 | 0 | 28 | **100.00%** |
-| **S13_BookingConcurrencyService** | Complex | 31 | 13 | 8 | 5 | 18 | **61.54%** |
-| **S14_SubscriptionRenewalService** | Complex | 26 | 10 | 4 | 6 | 16 | **40.00%** |
-| **S15_LoyaltyPointService** | Complex | 21 | 7 | 4 | 3 | 14 | **57.14%** |
-| **TỔNG HỢP / TRUNG BÌNH** | **15 Services** | **291** | **125** | **82** | **43** | **166** | **65.60%** |
+| **S03_ShippingFeeCalculator** | Simple | 26 | 26 | 21 | 5 | 0 | **80.77%** |
+| **S04_TaxCalculator** | Simple | 27 | 25 | 15 | 10 | 2 | **60.00%** |
+| **S05_SlugGenerator** | Simple | 3 | 3 | 1 | 2 | 0 | **33.33%** |
+| **S06_AuthService** | Medium | 4 | 3 | 3 | 0 | 1 | **100.00%** |
+| **S07_CartService** | Medium | 15 | 13 | 10 | 3 | 2 | **76.92%** |
+| **S08_CouponService** | Medium | 8 | 8 | 3 | 5 | 0 | **37.50%** |
+| **S09_NotificationService** | Medium | 5 | 4 | 1 | 3 | 1 | **25.00%** |
+| **S10_UserProfileService** | Medium | 11 | 7 | 4 | 3 | 4 | **57.14%** |
+| **S11_PaymentService** | Complex | 7 | 3 | 3 | 0 | 4 | **100.00%** |
+| **S12_OrderFulfillmentService** | Complex | 8 | 4 | 4 | 0 | 4 | **100.00%** |
+| **S13_BookingConcurrencyService** | Complex | 17 | 15 | 9 | 6 | 2 | **60.00%** |
+| **S14_SubscriptionRenewalService** | Complex | 15 | 13 | 5 | 8 | 2 | **38.46%** |
+| **S15_LoyaltyPointService** | Complex | 11 | 7 | 4 | 3 | 4 | **57.14%** |
+| **TỔNG HỢP / TRUNG BÌNH** | **15 Services** | **178** | **152** | **100** | **52** | **26** | **65.79%** |
 
 *Công thức tính Mutation Score chuẩn quốc tế:*
-$$\text{Mutation Score (\%)} = \frac{\text{Killed} + \text{Timeout}}{\text{Total} - \text{CompileError}} \times 100 = \frac{82 + 0}{125} \times 100 = \mathbf{65.60\%}$$
+$$\text{Mutation Score (\%)} = \frac{\text{Killed} + \text{Timeout}}{\text{Total} - \text{CompileError}} \times 100 = \frac{100 + 0}{152} \times 100 = \mathbf{65.79\%}$$
+
+> [!NOTE]
+> **Đột phá về Độ tin cậy Toán tử Đột biến (Mutation Operator Precision):**
+> Trước khi áp dụng bộ lọc TypeScript syntax-safe, toán tử đột biến sinh ra 166 lỗi biên dịch trên 291 mutants (tỷ lệ hợp lệ chỉ đạt 43.0%). Sau khi tái cấu trúc `mutators.ts` (loại trừ interface/type declarations, bóc tách generic type annotations `<T>`, và xác thực ngữ cảnh biểu thức điều kiện), số lỗi biên dịch giảm **84.3%** (từ 166 xuống chỉ còn 26), nâng tỷ lệ mutant hợp lệ lên **85.39%** (152/178), đảm bảo kết quả đánh giá mutation score có cơ sở thống kê vững chắc.
 
 #### Phân tích chi tiết trường hợp Pilot Điển hình (`S01_DiscountCalculator`):
 
@@ -462,7 +478,7 @@ $$\text{Mutation Score (\%)} = \frac{\text{Killed} + \text{Timeout}}{\text{Total
 | **Mutation Score (%)** | **88.89%** | $\frac{8 + 0}{9 - 0} \times 100 = 88.89\%$ |
 
 #### Cơ chế Tinh Chỉnh Dẫn Dắt Bởi Đột Biến (Mutation-Guided Refinement):
-Đối với 43 mutants sống sót (Survived Mutants) trên toàn bộ benchmark, hệ thống tích hợp module `MutationGuidedRefiner` (`packages/core/src/mutation/mutation_refiner.ts`). Module này phân tích vị trí mutant (ví dụ: điều kiện biên `>=` vs `>`, kiểm tra giá trị âm/null) và tự động sinh bổ sung các test scenario hướng mục tiêu biên/phủ định (Boundary & Negation Tests) cùng Prompt phản hồi cho LLM, giúp nâng cao độ nhạy phát hiện lỗi của bộ test sinh ra.
+Đối với 52 mutants sống sót (Survived Mutants) trên toàn bộ benchmark, hệ thống tích hợp module `MutationGuidedRefiner` (`packages/core/src/mutation/mutation_refiner.ts`). Module này phân tích vị trí mutant (ví dụ: điều kiện biên `>=` vs `>`, kiểm tra giá trị âm/null) và tự động sinh bổ sung các test scenario hướng mục tiêu biên/phủ định (Boundary & Negation Tests) cùng Prompt phản hồi cho LLM, giúp nâng cao độ nhạy phát hiện lỗi của bộ test sinh ra.
 
 ### 7.4. Nhận xét và Quy tắc Thực nghiệm Khoa học:
 1. **Loại bỏ dữ liệu mô phỏng:** 100% điểm số Code Coverage và Mutation Score trong báo cáo được đo trực tiếp từ Jest và `MutationRunner` thực thi trong sandbox độc lập (Docker container `experiment-runner`), không sử dụng số liệu ước tính hoặc hardcoded fallback.

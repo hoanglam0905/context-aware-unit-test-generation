@@ -1,9 +1,19 @@
+export interface MethodSlice {
+  className?: string;
+  methodName: string;
+  visibility?: string;
+  parameters: Array<{ name: string; type: string }>;
+  returnType: string;
+  signature: string;
+}
+
 export interface PromptContext {
   serviceCode: string;
   requirementDoc?: string;
   existingTestPatterns?: string;
   className?: string;
   targetMethodName?: string;
+  targetMethodSlice?: MethodSlice;
   sourceLanguage?: string;
   testFramework?: string;
   astSummary?: string;
