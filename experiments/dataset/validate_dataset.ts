@@ -207,11 +207,17 @@ export async function validateDataset(): Promise<{
             jsonlValid = false;
           }
 
-          // Kiểm tra xem mã AC hoặc BR có cơ sở trong requirement.md không
-          const acMatch = acRef.match(/^(AC\d+|BR\d+)/);
-          if (acMatch && reqText) {
-            if (!reqText.includes('Acceptance Criteria') && !reqText.includes('Business Rules') && !reqText.includes('Quy tắc nghiệp vụ')) {
-              errors.push(`[${cfg.file}:L${lineIdx + 1}] requirement của ${svcId} thiếu cấu trúc AC/BR`);
+          // Kiểm tra xem mã AC hoặc BR có cơ sở và ID xác thực trong requirement.md không
+          const acMatch = acRef.match(/^(AC|BR)(\d+):\s*(.+)/);
+          if (!acMatch) {
+            errors.push(`[${cfg.file}:L${lineIdx + 1}] scenario ${scen.id} sai định dạng acceptanceCriteriaRef (phải bắt đầu bằng AC<n>: hoặc BR<n>:): "${acRef}"`);
+            jsonlValid = false;
+          } else if (reqText) {
+            const [_, prefix, numStr] = acMatch;
+            const num = parseInt(numStr, 10);
+            const rulePattern = new RegExp(`(?:${num}\\.|${prefix}\\s*${num}|Rule\\s*${num}|Quy tắc\\s*${num}|Scenario)`, 'i');
+            if (!rulePattern.test(reqText)) {
+              errors.push(`[${cfg.file}:L${lineIdx + 1}] Mã ${prefix}${num} trong "${acRef}" không tìm thấy trong tài liệu requirement của ${svcId}`);
               jsonlValid = false;
             }
           }

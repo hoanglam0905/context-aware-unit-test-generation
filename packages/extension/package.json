@@ -37,14 +37,7 @@
     "onCommand:contextAwareTestGen.openSettings",
     "onCommand:contextAwareTestGen.openSidebar",
     "onLanguage:typescript",
-    "onLanguage:javascript",
-    "onLanguage:python",
-    "onLanguage:java",
-    "onLanguage:csharp",
-    "onLanguage:go",
-    "onLanguage:php",
-    "onLanguage:cpp",
-    "*"
+    "onLanguage:javascript"
   ],
   "contributes": {
     "commands": [
@@ -75,14 +68,14 @@
       "editor/context": [
         {
           "command": "contextAwareTestGen.generateTest",
-          "when": "editorTextFocus && (resourceExtname == .ts || resourceExtname == .js || resourceExtname == .py || resourceExtname == .java || resourceExtname == .cs || resourceExtname == .go || resourceExtname == .php || resourceExtname == .cpp)",
+          "when": "editorTextFocus && (resourceExtname == .ts || resourceExtname == .js)",
           "group": "7_modification"
         }
       ],
       "explorer/context": [
         {
           "command": "contextAwareTestGen.generateTest",
-          "when": "resourceExtname == .ts || resourceExtname == .js || resourceExtname == .py || resourceExtname == .java || resourceExtname == .cs || resourceExtname == .go || resourceExtname == .php || resourceExtname == .cpp",
+          "when": "resourceExtname == .ts || resourceExtname == .js",
           "group": "7_modification"
         }
       ]
@@ -140,13 +133,38 @@
         },
         "contextAwareTestGen.autoGenerateOnSave": {
           "type": "boolean",
-          "default": true,
-          "description": "Automatically trigger background test generation on file save with AST diff checking"
+          "default": false,
+          "description": "Automatically trigger background test generation on file save with AST diff checking (Opt-in)"
         },
         "contextAwareTestGen.debounceDelayMs": {
           "type": "number",
           "default": 1500,
           "description": "Debounce delay (ms) before triggering real-time generation"
+        },
+        "contextAwareTestGen.geminiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Google Gemini API Key (or set GEMINI_API_KEY in .env)"
+        },
+        "contextAwareTestGen.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API Key (or set OPENAI_API_KEY in .env)"
+        },
+        "contextAwareTestGen.deepseekApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "DeepSeek API Key (or set DEEPSEEK_API_KEY in .env)"
+        },
+        "contextAwareTestGen.customEndpoint": {
+          "type": "string",
+          "default": "",
+          "description": "Custom LLM API Base URL (e.g. http://localhost:11434/v1 for local Ollama)"
+        },
+        "contextAwareTestGen.privacyConsentAcknowledged": {
+          "type": "boolean",
+          "default": false,
+          "description": "Acknowledge that code and BA requirements may be transmitted to cloud LLM providers"
         }
       }
     }

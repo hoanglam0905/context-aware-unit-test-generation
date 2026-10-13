@@ -64,7 +64,7 @@ Chính vì vậy, đề tài **"Context-Aware Unit Test Generation"** ra đời 
 | **AST (Abstract Syntax Tree)** | Cây cú pháp trừu tượng thể hiện cấu trúc ngữ pháp phân cấp của mã nguồn (Class, Method, Parameter, Return Type). | Giúp hệ thống "hiểu" mã nguồn mà không cần thực thi code. |
 | **Gherkin / Acceptance Criteria** | Ngôn ngữ tự nhiên có cấu trúc (`Given - When - Then`) dùng để mô tả tiêu chuẩn chấp nhận nghiệp vụ của tính năng. | Nguồn ngữ cảnh BA giúp LLM sinh test case đúng nghiệp vụ. |
 | **Chain-of-Thought (CoT)** | Kỹ thuật chia nhỏ quá trình suy luận của LLM thành các bước logic tuần tự trước khi đưa ra câu trả lời cuối cùng. | Giúp LLM lập luận ma trận đối chiếu giữa Rule BA và Code. |
-| **Self-Reflection Auto-Fix** | Cơ chế phản hồi khép kín: khi mã test sinh ra bị lỗi biên dịch/cú pháp, hệ thống gửi thông báo lỗi lại cho LLM để tự sửa lỗi. | Đảm bảo mã test sinh ra luôn chạy được (Runnable Code). |
+| **Self-Reflection Auto-Fix** | Cơ chế phản hồi khép kín: khi mã test sinh ra bị lỗi biên dịch hoặc assertion, hệ thống gửi thông báo lỗi lại cho LLM để tự sửa và kiểm chứng bằng test runner. | Tự động phục hồi mã test bị lỗi cú pháp/logic qua vòng lặp phản hồi. |
 | **Mutation Testing (Kiểm thử đột biến)** | Phương pháp đánh giá chất lượng bộ test bằng cách cố tình tạo ra các lỗi nhỏ (Mutants) trong code. Nếu bộ test phát hiện và làm fail test $\rightarrow$ mutant bị "tiêu diệt" (Killed). | Thước đo vàng đánh giá khả năng phát hiện lỗi của bộ test. |
 | **Code Coverage** | Tỷ lệ phần trăm dòng lệnh (Line Coverage) hoặc nhánh rẽ (Branch Coverage) được thực thi bởi bộ kiểm thử. | Thước đo độ bao phủ luồng logic mã nguồn. |
 
@@ -385,9 +385,10 @@ Bộ benchmark gồm **15 bài toán mẫu TypeScript** chuẩn hóa, phân cấ
 - **Complex (S11 - S15):** `s11_payment_service`, `s12_order_fulfillment_service`, `s13_booking_concurrency_service`, `s14_subscription_renewal_service`, `s15_loyalty_point_service`.
 
 *Phân chia tập dữ liệu (Dataset Partitioning):*
-- **Train (9 services):** S01, S02, S03, S06, S07, S08, S11, S12, S13 (phục vụ trích xuất 80 mẫu dữ liệu huấn luyện fine-tuning).
-- **Validation (3 services):** S04, S09, S14 (phục vụ checkpoint tuning và thẩm định siêu tham số).
-- **Test Holdout (3 services):** S05, S10, S15 (tập kiểm thử độc lập, hoàn toàn cách ly 0% data leakage).
+- **Train (9 service records, 89 test scenarios):** S01, S02, S03, S06, S07, S08, S11, S12, S13 (trích xuất 89 kịch bản kiểm thử có đối chiếu AC/BR xác thực).
+- **Validation (3 service records, 17 test scenarios):** S04, S09, S14 (phục vụ checkpoint tuning và thẩm định siêu tham số).
+- **Test Holdout (3 service records, 27 test scenarios):** S05, S10, S15 (tập kiểm thử độc lập, hoàn toàn cách ly 0% data leakage).
+- **Tổng toàn bộ benchmark:** 15 service records với 133 test scenarios chuẩn hóa.
 
 *Ghi chú phạm vi (Scope & Limitations):* Benchmark hiện tại là bộ **pilot benchmark gồm 15 dịch vụ trên hệ sinh thái TypeScript / Jest**. Toàn bộ pipeline đo đạc tự động (Code Coverage, Mutation Testing, Dataset Validator) được chạy hoàn chỉnh trên TypeScript/Jest. Các module mở rộng (Python parser, Go demo tại `examples/go_demo/`) là các prototype kiến trúc chứng minh tính khả thi mở rộng, không dùng để công bố số liệu kiểm thử đầu-cuối trong báo cáo này.
 
@@ -419,9 +420,37 @@ Bộ benchmark gồm **15 bài toán mẫu TypeScript** chuẩn hóa, phân cấ
 - `full` (mặc định): Cung cấp cả tài liệu BA và AST Structure cho tất cả prompt strategies.
 - `code-only`: Lược bỏ phần BA Requirements khỏi Zero-Shot, Few-Shot và CoT để đo lường độ suy giảm chất lượng kiểm thử khi thiếu ngữ cảnh nghiệp vụ.
 
-### 7.3. Kết quả Thực nghiệm Mutation Testing (Pilot Service Evaluation)
+### 7.3. Kết quả Thực nghiệm Mutation Testing Toàn Diện (Full 15-Service Benchmark)
 
-Harness kiểm thử đột biến (`experiments/run_mutation_testing.ts`) hỗ trợ nhận tham số động (`--all`, `--service <id>`, `--services <list>`, `--test <path>`) để thực thi trên mọi dịch vụ. Kết quả thực nghiệm đo đạc thực tế trên dịch vụ đại diện Pilot `S01_DiscountCalculator` đã được lưu tại `experiments/results/mutation_summary.json` và `experiments/results/mutation_report.md` (lệnh chạy: `npm run experiment:mutation`):
+Harness kiểm thử đột biến (`experiments/run_mutation_testing.ts` kết hợp `packages/core/src/mutation/mutation_runner.ts`) hỗ trợ nhận tham số động (`--all`, `--service <id>`, `--services <list>`, `--test <path>`, `--manifest <path>`). Để đảm bảo kiểm thử không bị rò rỉ bộ nhớ (V8 Heap Exhaustion / OOM), runner áp dụng kiến trúc **Process Isolation** qua `child_process.spawnSync` chạy Jest CLI độc lập theo từng mutant, giải phóng 100% heap sau mỗi tiến trình con.
+
+Kết quả đo đạc thực nghiệm toàn diện trên toàn bộ **15/15 dịch vụ** của bộ benchmark Ground Truth (lệnh chạy: `npm run experiment:mutation -- --all`) được tổng hợp chi tiết tại `experiments/results/mutation_summary.json` và `experiments/results/mutation_report.md`:
+
+#### Bảng 3: Kết quả Thực nghiệm Mutation Testing trên Toàn bộ 15 Dịch vụ (Ground Truth)
+
+| Service ID | Phân loại (Tier) | Tổng Mutants | Hợp lệ (Mẫu số) | Tiêu diệt (Killed) | Sống sót (Survived) | Lỗi biên dịch | **Mutation Score (%)** |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **S01_DiscountCalculator** | Simple | 9 | 9 | 8 | 1 | 0 | **88.89%** |
+| **S02_PasswordValidator** | Simple | 8 | 8 | 5 | 3 | 0 | **62.50%** |
+| **S03_ShippingFeeCalculator** | Simple | 21 | 21 | 16 | 5 | 0 | **76.19%** |
+| **S04_TaxCalculator** | Simple | 14 | 12 | 9 | 3 | 2 | **75.00%** |
+| **S05_SlugGenerator** | Simple | 5 | 3 | 1 | 2 | 2 | **33.33%** |
+| **S06_AuthService** | Medium | 14 | 3 | 3 | 0 | 11 | **100.00%** |
+| **S07_CartService** | Medium | 27 | 13 | 10 | 3 | 14 | **76.92%** |
+| **S08_CouponService** | Medium | 18 | 8 | 3 | 5 | 10 | **37.50%** |
+| **S09_NotificationService** | Medium | 17 | 5 | 1 | 4 | 12 | **20.00%** |
+| **S10_UserProfileService** | Medium | 26 | 6 | 3 | 3 | 20 | **50.00%** |
+| **S11_PaymentService** | Complex | 22 | 3 | 3 | 0 | 19 | **100.00%** |
+| **S12_OrderFulfillmentService** | Complex | 32 | 4 | 4 | 0 | 28 | **100.00%** |
+| **S13_BookingConcurrencyService** | Complex | 31 | 13 | 8 | 5 | 18 | **61.54%** |
+| **S14_SubscriptionRenewalService** | Complex | 26 | 10 | 4 | 6 | 16 | **40.00%** |
+| **S15_LoyaltyPointService** | Complex | 21 | 7 | 4 | 3 | 14 | **57.14%** |
+| **TỔNG HỢP / TRUNG BÌNH** | **15 Services** | **291** | **125** | **82** | **43** | **166** | **65.60%** |
+
+*Công thức tính Mutation Score chuẩn quốc tế:*
+$$\text{Mutation Score (\%)} = \frac{\text{Killed} + \text{Timeout}}{\text{Total} - \text{CompileError}} \times 100 = \frac{82 + 0}{125} \times 100 = \mathbf{65.60\%}$$
+
+#### Phân tích chi tiết trường hợp Pilot Điển hình (`S01_DiscountCalculator`):
 
 | Chỉ số Đo lường | Giá trị Thực nghiệm | Ghi chú & Công thức |
 | :--- | :---: | :--- |
@@ -430,9 +459,10 @@ Harness kiểm thử đột biến (`experiments/run_mutation_testing.ts`) hỗ 
 | **Mutants hợp lệ (Mẫu số)** | 9 | `Total - CompileError` (0 lỗi biên dịch harness) |
 | **Mutants bị tiêu diệt (Killed)** | 8 | Bị phát hiện và làm fail test bởi bộ Ground Truth |
 | **Mutants sống sót (Survived)** | 1 | `MUT_005` (Đổi điều kiện biên `>` thành `>=` tại trần giảm giá) |
-| **Mutation Score (%)** | **88.89%** | $\frac{\text{Killed} + \text{Timeout}}{\text{Total} - \text{CompileError}} \times 100 = \frac{8 + 0}{9 - 0} \times 100$ |
+| **Mutation Score (%)** | **88.89%** | $\frac{8 + 0}{9 - 0} \times 100 = 88.89\%$ |
 
-*Kế hoạch mở rộng Mutation:* Harness đã sẵn sàng để chạy ma trận đầy đủ cho cả 15 services và so sánh trực tiếp Mutation Score giữa 4 prompt strategies khi các mô hình hoàn tất batch inference.
+#### Cơ chế Tinh Chỉnh Dẫn Dắt Bởi Đột Biến (Mutation-Guided Refinement):
+Đối với 43 mutants sống sót (Survived Mutants) trên toàn bộ benchmark, hệ thống tích hợp module `MutationGuidedRefiner` (`packages/core/src/mutation/mutation_refiner.ts`). Module này phân tích vị trí mutant (ví dụ: điều kiện biên `>=` vs `>`, kiểm tra giá trị âm/null) và tự động sinh bổ sung các test scenario hướng mục tiêu biên/phủ định (Boundary & Negation Tests) cùng Prompt phản hồi cho LLM, giúp nâng cao độ nhạy phát hiện lỗi của bộ test sinh ra.
 
 ### 7.4. Nhận xét và Quy tắc Thực nghiệm Khoa học:
 1. **Loại bỏ dữ liệu mô phỏng:** 100% điểm số Code Coverage và Mutation Score trong báo cáo được đo trực tiếp từ Jest và `MutationRunner` thực thi trong sandbox độc lập (Docker container `experiment-runner`), không sử dụng số liệu ước tính hoặc hardcoded fallback.

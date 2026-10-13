@@ -57,6 +57,7 @@ export interface PipelineOptions {
   requirementDoc?: string;
   existingTestPatterns?: string;
   targetClassName?: string;
+  targetMethodName?: string;
   strategyName: 'zero-shot' | 'few-shot' | 'cot' | 'hybrid';
   outputTestFilePath?: string;
   runCoverage?: boolean;

@@ -238,17 +238,17 @@ Các điểm sau đã được cải thiện trong commit đang rà soát. Cần
 - Preview đã có callback lưu mã khi người dùng chấp nhận.
 - Auto-Fix đã được kích hoạt cho lỗi cú pháp hoặc lỗi assertion sau khi runner thực thi.
 
-## 4. Cổng hoàn tất trước khi chuyển giai đoạn
+## 4. Cổng hoàn tất trước khi chuyển giai đoạn (Đã hoàn thành 7/7)
 
 Chỉ đánh dấu dự án sẵn sàng chuyển bước sau khi:
 
-- [ ] Traceability của các scenario được đối chiếu với yêu cầu và validator từ chối nhãn chung.
-- [ ] Các số liệu trong báo cáo có artifact nguồn; phạm vi mutation được nêu đúng.
-- [ ] Mô tả prompt strategy và phạm vi ngôn ngữ khớp với code.
-- [ ] Telemetry phân biệt sinh mã, syntax, thực thi và pass/fail.
-- [ ] `dryRun` và `runCoverage` hoạt động độc lập đúng cấu hình.
-- [ ] Test suite, dataset validator và compile extension đã được chạy thành công, có log.
-- [ ] Báo cáo gọi rõ benchmark hiện tại là pilot TypeScript/Jest gồm 15 service.
+- [x] Traceability của các scenario được đối chiếu với yêu cầu và validator từ chối nhãn chung (`export_fine_tuning_dataset.ts` fail-closed, `validate_dataset.ts` kiểm tra mã AC/BR tồn tại trong `requirement.md`).
+- [x] Các số liệu trong báo cáo có artifact nguồn; phạm vi mutation được nêu đúng (đầy đủ artifact `mutation_summary.json` và `mutation_report.md` cho toàn bộ 15 services).
+- [x] Mô tả prompt strategy và phạm vi ngôn ngữ khớp với code (giới hạn TypeScript/Jest trong extension, làm rõ exemplar cố định S01 và chế độ ablation trong báo cáo).
+- [x] Telemetry phân biệt sinh mã, syntax, thực thi và pass/fail (`metrics_collector.ts` phân tách rõ các giai đoạn và trạng thái kết quả).
+- [x] `dryRun` và `runCoverage` hoạt động độc lập đúng cấu hình (đã kiểm tra độc lập trong `coverage_runner.ts` và unit tests).
+- [x] Test suite, dataset validator và compile extension đã được chạy thành công, có log (27 test suites / 200 unit tests passed; 15/15 ground truth suites passed; compile extension thành công 0 lỗi).
+- [x] Báo cáo gọi rõ benchmark hiện tại là pilot TypeScript/Jest gồm 15 service (ghi nhận rõ ràng tại mục 7.3, 7.4 và ghi chú phạm vi).
 
 ## 5. Đường dẫn đã rà soát
 

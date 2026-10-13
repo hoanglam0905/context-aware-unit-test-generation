@@ -37,6 +37,7 @@ export class CoreGeneratorPipeline {
       requirementDoc: options.requirementDoc,
       existingTestPatterns: options.existingTestPatterns,
       targetClassName: options.targetClassName,
+      targetMethodName: options.targetMethodName,
     });
 
     // 2. Xây dựng Prompt dựa trên chiến lược (zero-shot, few-shot, cot, hybrid)

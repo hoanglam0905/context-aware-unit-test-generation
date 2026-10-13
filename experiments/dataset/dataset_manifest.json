@@ -2,6 +2,22 @@
   "version": "1.0.0",
   "name": "Context-Aware Unit Test Benchmark Dataset",
   "description": "Standardized benchmark catalog of 15 TypeScript services with BA requirements and human-authored ground truth test suites",
+  "provenance": {
+    "datasetType": "curated_pilot",
+    "targetLanguage": "TypeScript (Jest)",
+    "benchmarkScope": "15 Domain Services across 3 Tiers (Simple, Medium, Complex)",
+    "authors": "UTC2 Research Team (Context-Aware Unit Test Generation Project)",
+    "license": "MIT",
+    "reviewDate": "2026-10-12",
+    "provenanceNotes": "Curated enterprise domain scenarios with ground-truth unit tests and business requirements specifications. Zero data leakage across 9 Train, 3 Validation, 3 Test Holdout splits.",
+    "statistics": {
+      "totalServices": 15,
+      "totalTestScenarios": 133,
+      "train": { "services": 9, "scenarios": 89 },
+      "validation": { "services": 3, "scenarios": 17 },
+      "test": { "services": 3, "scenarios": 27 }
+    }
+  },
   "splits": {
     "train": ["S01_DiscountCalculator", "S02_PasswordValidator", "S03_ShippingFeeCalculator", "S06_AuthService", "S07_CartService", "S08_CouponService", "S11_PaymentService", "S12_OrderFulfillmentService", "S13_BookingConcurrencyService"],
     "validation": ["S04_TaxCalculator", "S09_NotificationService", "S14_SubscriptionRenewalService"],

@@ -34,9 +34,12 @@ Open VS Code Settings (`Ctrl+,`) and search for `Context-Aware`:
 
 | Setting | Default | Description |
 | :--- | :--- | :--- |
-| `contextAwareTestGen.modelProvider` | `gemini` | Choose between `gemini`, `deepseek`, `openai`, `ollama`. |
+| `contextAwareTestGen.modelProvider` | `ollama` | Default local provider: `ollama` (offline, privacy-preserving), or cloud providers: `gemini`, `deepseek`, `openai`. |
 | `contextAwareTestGen.promptStrategy` | `hybrid` | Choose between `hybrid`, `cot`, `few-shot`, `zero-shot`. |
-| `contextAwareTestGen.autoRunCoverage` | `true` | Automatically run Jest coverage after generation. |
+| `contextAwareTestGen.autoRunCoverage` | `true` | Automatically run Jest coverage after generating tests. |
+| `contextAwareTestGen.autoGenerateOnSave` | `false` | Automatically trigger test generation on file save with AST diff checking (Opt-in). |
+| `contextAwareTestGen.enableCodeLens` | `true` | Show interactive CodeLens on classes and individual methods. |
+| `contextAwareTestGen.customEndpoint` | `""` | Custom LLM endpoint (e.g. `http://localhost:11434/v1` for local Ollama). |
 
 ---
 

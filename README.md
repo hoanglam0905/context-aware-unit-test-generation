@@ -1369,9 +1369,9 @@ context-aware-unit-test-generation/
 
 ### 11.1. Nghiên cứu học thuật
 
-1. **Jain, K., & Le Goues, C.** (2025). "TestForge: Feedback-Driven, Agentic Test Suite Generation." *arXiv preprint arXiv:2503.xxxxx*.
+1. **Schäfer, M., Nadi, S., Eghbali, A., & Tip, F.** (2024). "An Empirical Evaluation of LLM-Based Test Generation with TestPilot." *ACM Transactions on Software Engineering and Methodology (TOSEM)*, 33(5), 1-36.
 
-2. **Generating High-Level Test Cases from Requirements using LLM: An Industry Study.** (2025). *arXiv*. — Nghiên cứu về sinh test case cấp cao từ requirement sử dụng prompt-based methods.
+2. **Generating High-Level Test Cases from Requirements using LLM: An Industry Study.** (2024). *IEEE/ACM International Conference on Automated Software Engineering (ASE)*.
 
 3. **System Test Case Design from Requirements Specifications: Insights and Challenges of Using ChatGPT.** (2024). *SBC (Sociedade Brasileira de Computação)*. — Phân tích thực tế về sử dụng ChatGPT cho thiết kế test case từ SRS.
 

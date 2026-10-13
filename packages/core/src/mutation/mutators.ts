@@ -13,12 +13,13 @@ export class CodeMutatorGenerator {
       const line = lines[lineIdx];
       const trimmed = line.trim();
 
-      // Bỏ qua comment và import
+      // Bỏ qua comment, import và khai báo RegExp literal
       if (
         trimmed.startsWith('//') ||
         trimmed.startsWith('/*') ||
         trimmed.startsWith('*') ||
         trimmed.startsWith('import ') ||
+        /=\s*\/.*\/[a-z]*;?$/.test(trimmed) ||
         trimmed.length === 0
       ) {
         continue;

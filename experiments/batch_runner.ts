@@ -85,6 +85,7 @@ export class BatchExperimentRunner {
                 tier: service.tier,
                 model: modelConfig.name,
                 strategy: strategyName,
+                testFilePath,
                 durationMs: meta.durationMs || 0,
                 totalTokens: meta.usage?.totalTokens || 0,
                 status: 'SUCCESS (CACHED)',
@@ -147,6 +148,7 @@ export class BatchExperimentRunner {
               tier: service.tier,
               model: modelConfig.name,
               strategy: strategyName,
+              testFilePath,
               durationMs: result.durationMs,
               totalTokens: result.usage?.totalTokens || 0,
               status: 'SUCCESS',
@@ -161,6 +163,7 @@ export class BatchExperimentRunner {
               tier: service.tier,
               model: modelConfig.name,
               strategy: strategyName,
+              testFilePath,
               status: 'ERROR',
               error: error.message,
             });
@@ -169,7 +172,7 @@ export class BatchExperimentRunner {
       }
     }
 
-    // 3. Xuất file kết quả tổng hợp CSV
+    // 3. Xuất file kết quả tổng hợp CSV và Run Manifest JSON
     const csvHeader = 'RunId,Service,Tier,Model,Strategy,Status,DurationMs,TotalTokens,Error\n';
     const csvRows = resultsSummary
       .map(
@@ -180,7 +183,37 @@ export class BatchExperimentRunner {
 
     fs.mkdirSync(this.config.outputDir, { recursive: true });
     fs.writeFileSync(path.join(this.config.outputDir, 'batch_summary.csv'), csvHeader + csvRows, 'utf-8');
-    console.log(`\n🎉 ĐÃ HOÀN TẤT THỰC NGHIỆM! Báo cáo lưu tại: ${path.join(this.config.outputDir, 'batch_summary.csv')}`);
+
+    const manifestRuns = resultsSummary.map(r => ({
+      runId: r.runId,
+      serviceId: r.service,
+      tier: r.tier,
+      model: r.model,
+      strategy: r.strategy,
+      testFilePath: r.testFilePath,
+      durationMs: r.durationMs || 0,
+      totalTokens: r.totalTokens || 0,
+      status: r.status,
+      error: r.error,
+    }));
+
+    fs.writeFileSync(
+      path.join(this.config.outputDir, 'batch_run_manifest.json'),
+      JSON.stringify(
+        {
+          version: '1.0.0',
+          generatedAt: new Date().toISOString(),
+          totalRuns: manifestRuns.length,
+          successfulRuns: manifestRuns.filter(r => r.status.startsWith('SUCCESS')).length,
+          runs: manifestRuns,
+        },
+        null,
+        2
+      ),
+      'utf-8'
+    );
+
+    console.log(`\n🎉 ĐÃ HOÀN TẤT THỰC NGHIỆM! Báo cáo lưu tại:\n   - CSV: ${path.join(this.config.outputDir, 'batch_summary.csv')}\n   - Manifest: ${path.join(this.config.outputDir, 'batch_run_manifest.json')}`);
   }
 
   private findServices(dir: string): Array<{ serviceId: string; tier: string; servicePath: string; reqPath: string }> {

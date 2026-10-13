@@ -16,18 +16,9 @@ export function activate(context: any): void {
   // 1. Đăng ký Real-time Document Watcher (Auto-gen on save & AST diff check)
   realtimeWatcher.register(context);
 
-  // 2. Đăng ký Inline CodeLens Provider
+  // 2. Đăng ký Inline CodeLens Provider (TypeScript/JavaScript hỗ trợ thực thi trực tiếp qua Jest Runner)
   if (vscode.languages && vscode.languages.registerCodeLensProvider) {
-    const supportedLanguages = [
-      'typescript',
-      'javascript',
-      'python',
-      'java',
-      'csharp',
-      'go',
-      'php',
-      'cpp',
-    ];
+    const supportedLanguages = ['typescript', 'javascript'];
     const selectors = supportedLanguages.map((lang) => ({ language: lang }));
     context.subscriptions.push(
       vscode.languages.registerCodeLensProvider(selectors, codeLensProvider)
@@ -67,10 +58,11 @@ export function activate(context: any): void {
       const targetUri = uri || vscode.window.activeTextEditor?.document?.uri;
       if (!targetUri) return;
 
+      const targetMethod = methodName || 'Method';
       vscode.window.showInformationMessage(
-        `⚡ [Real-time AI] Đang sinh test theo ngữ cảnh BA cho phương thức: ${methodName || 'Method'}`
+        `⚡ [Real-time AI] Đang sinh test theo ngữ cảnh BA cho phương thức: ${targetMethod}()`
       );
-      await testGenService.generateForFile(targetUri, context.extensionUri);
+      await testGenService.generateForMethod(targetUri, context.extensionUri, targetMethod);
     }
   );
 

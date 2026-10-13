@@ -3,6 +3,7 @@ export interface PromptContext {
   requirementDoc?: string;
   existingTestPatterns?: string;
   className?: string;
+  targetMethodName?: string;
   sourceLanguage?: string;
   testFramework?: string;
   astSummary?: string;

@@ -3,7 +3,7 @@
  */
 export type WebviewToHostMessage =
   | { type: 'GENERATE_TEST'; payload: { servicePath?: string; requirementPath?: string; strategy: string } }
-  | { type: 'ACCEPT_TEST'; payload?: { testCode?: string; outputPath?: string } }
+  | { type: 'ACCEPT_TEST'; payload?: { testCode?: string; outputPath?: string; selectedScenarioIds?: string[] } }
   | { type: 'REJECT_TEST' }
   | { type: 'TOGGLE_SCENARIO'; payload: { scenarioId: string; selected: boolean } }
   | { type: 'OPEN_SETTINGS' }
@@ -23,6 +23,8 @@ export type HostToWebviewMessage =
           id: string;
           description: string;
           category?: string;
+          acceptanceCriteriaRef?: string;
+          expectedBehavior?: string;
           selected?: boolean;
         }>;
         testCode: string;

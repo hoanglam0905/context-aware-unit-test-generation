@@ -32,6 +32,10 @@ You must output a structured JSON response matching the following schema:
   "testCode": "PUT_ACTUAL_FULL_EXECUTABLE_TEST_CODE_HERE"
 }`;
 
+    const targetMethodInstruction = context.targetMethodName
+      ? `\n\n### TARGET METHOD FOCUS:\nGenerate test cases exclusively for method: "${context.targetMethodName}()". Do not generate redundant test cases for other methods.\n`
+      : '';
+
     const userPrompt = `### 1. BUSINESS REQUIREMENT SPECIFICATION (from Business Analyst):
 ${context.requirementDoc || 'No explicit BA requirement document provided. Rely on inferred code logic.'}
 
@@ -41,8 +45,7 @@ ${context.requirementDoc || 'No explicit BA requirement document provided. Rely 
 \`\`\`${lang.toLowerCase()}
 ${context.serviceCode}
 \`\`\`
-${context.astSummary ? `\n---\n\n### 3. AST STRUCTURE ANALYSIS:\n${context.astSummary}\n` : ''}
----
+${context.astSummary ? `\n---\n\n### 3. AST STRUCTURE ANALYSIS:\n${context.astSummary}\n` : ''}${targetMethodInstruction}---
 
 ### INSTRUCTIONS:
 1. Cross-reference every Business Rule and Gherkin Acceptance Criterion with the source code and AST structure.

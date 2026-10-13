@@ -12,7 +12,7 @@
     "experiment:batch": "ts-node experiments/batch_runner.ts",
     "experiment:evaluate": "ts-node experiments/evaluate_generated_tests.ts",
     "experiment:report": "ts-node experiments/generate_report.ts",
-    "experiment:mutation": "ts-node experiments/run_mutation_testing.ts",
+    "experiment:mutation": "node --max-old-space-size=4096 node_modules/.bin/ts-node experiments/run_mutation_testing.ts",
     "dataset:validate": "ts-node experiments/dataset/validate_dataset.ts",
     "dataset:export": "ts-node experiments/dataset/export_fine_tuning_dataset.ts",
     "compile:extension": "tsc -p packages/extension/tsconfig.json",

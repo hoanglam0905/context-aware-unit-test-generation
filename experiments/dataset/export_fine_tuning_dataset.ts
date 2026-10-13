@@ -764,42 +764,8 @@ function resolveTraceability(
     }
   }
 
-  // 2. Đối chiếu với Gherkin Scenarios trong tài liệu BA
-  if (reqContext && Array.isArray(reqContext.scenarios) && reqContext.scenarios.length > 0) {
-    let bestScenario: any = null;
-    let bestScore = 0;
-    let bestIndex = -1;
-
-    const descWords = new Set(
-      lowerDesc
-        .replace(/[^a-z0-9_\s]/g, ' ')
-        .split(/\s+/)
-        .filter((w: string) => w.length > 2 && !['should', 'when', 'with', 'from', 'that', 'this'].includes(w))
-    );
-
-    reqContext.scenarios.forEach((scen: any, sIdx: number) => {
-      const scenText = `${scen.title} ${(scen.when || []).join(' ')} ${(scen.then || []).join(' ')}`.toLowerCase();
-      let score = 0;
-      for (const word of descWords) {
-        if (scenText.includes(word)) score++;
-      }
-      if (score > bestScore) {
-        bestScore = score;
-        bestScenario = scen;
-        bestIndex = sIdx;
-      }
-    });
-
-    if (bestScenario && bestScore >= 2) {
-      const acRef = `AC${bestIndex + 1}: ${bestScenario.title}`;
-      const expected = bestScenario.then && bestScenario.then.length > 0
-        ? bestScenario.then.join('; ')
-        : `Satisfies acceptance criteria for ${bestScenario.title}`;
-      return { acRef, expected, category: 'NORMAL_FLOW' };
-    }
-  }
-
-  // 3. Tuyệt đối KHÔNG tự gán nhãn chung (AC-STD, AC-BND, AC-ERR). Ném lỗi bắt buộc phải có liên kết thật!
+  // 2. Tuyệt đối KHÔNG suy đoán mờ (fuzzy-matching) hoặc tự gán nhãn chung (AC-STD, AC-BND, AC-ERR).
+  // Yêu cầu fail-closed: Mọi scenario benchmark bắt buộc phải có liên kết xác thực trong VERIFIED_TRACEABILITY_REGISTRY!
   throw new Error(
     `[Traceability Error] Scenario "${testDesc}" trong service ${svc.id} chưa có liên kết AC/BR xác thực trong requirement.md! Vui lòng cập nhật VERIFIED_TRACEABILITY_REGISTRY.`
   );

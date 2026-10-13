@@ -20,25 +20,54 @@ export class TestGenerationService {
   }
 
   /**
+   * Sinh Unit Test cho một phương thức cụ thể (Method-Level Test Generation)
+   */
+  public async generateForMethod(
+    serviceUri: any,
+    extensionUri: any,
+    methodName: string
+  ): Promise<PipelineResult | undefined> {
+    return this.generateForFile(serviceUri, extensionUri, {
+      targetSymbol: methodName,
+      targetType: 'method',
+    });
+  }
+
+  /**
    * Thực hiện luồng sinh Unit Test từ file Service và hiển thị kết quả lên Preview Panel (có kèm Auto-Fix và Metrics)
    */
-  public async generateForFile(serviceUri: any, extensionUri: any): Promise<PipelineResult | undefined> {
+  public async generateForFile(
+    serviceUri: any,
+    extensionUri: any,
+    options?: { targetSymbol?: string; targetType?: 'file' | 'method' | 'class' }
+  ): Promise<PipelineResult | undefined> {
     const startTime = Date.now();
     const serviceFilePath = serviceUri.fsPath;
     const serviceFileName = path.basename(serviceFilePath, path.extname(serviceFilePath));
     const requirementFilePath = RequirementFinder.findRequirementFile(serviceFilePath);
 
     const config = this.configManager.getConfiguration();
+
+    // 🔒 Thông báo quyền riêng tư và bảo mật dữ liệu mã nguồn khi dùng Cloud LLM
+    const isCloud = ['gemini', 'openai', 'deepseek'].includes(config.modelProvider);
+    if (isCloud && !process.env.PRIVACY_CONSENT_ACKNOWLEDGED) {
+      vscode.window.showInformationMessage(
+        `ℹ️ [Bảo mật mã nguồn] Dữ liệu code và yêu cầu BA được gửi tới ${config.modelProvider.toUpperCase()}. Chuyển sang Ollama local nếu cần bảo mật tuyệt đối.`
+      );
+    }
+
     const llmGateway = this.configManager.createLLMGateway();
     const pipeline = new CoreGeneratorPipeline(llmGateway);
     const autoFixEngine = new AutoFixEngine(llmGateway);
 
+    const displayTarget = options?.targetSymbol ? `${serviceFileName} -> ${options.targetSymbol}()` : serviceFileName;
+
     // Mở preview panel ở trạng thái Loading
     const panel = TestPreviewPanel.createOrShow(extensionUri, {
-      serviceName: serviceFileName,
+      serviceName: displayTarget,
       strategy: config.promptStrategy,
       scenarios: [],
-      testCode: `// ⏳ Đang kết nối tới mô hình ${config.modelProvider.toUpperCase()} (${config.promptStrategy.toUpperCase()})...\n// 📄 Tài liệu BA: ${requirementFilePath ? path.basename(requirementFilePath) : 'Không tìm thấy (Baseline)'}\n// Vui lòng chờ trong giây lát...`,
+      testCode: `// ⏳ Đang kết nối tới mô hình ${config.modelProvider.toUpperCase()} (${config.promptStrategy.toUpperCase()})...\n// 🎯 Mục tiêu: ${displayTarget}\n// 📄 Tài liệu BA: ${requirementFilePath ? path.basename(requirementFilePath) : 'Không tìm thấy (Baseline)'}\n// Vui lòng chờ trong giây lát...`,
       syntaxValid: true,
     });
 
@@ -53,7 +82,7 @@ export class TestGenerationService {
       let result = await vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
-          title: `[Context-Aware] Đang sinh Unit Test cho ${serviceFileName}...`,
+          title: `[Context-Aware] Đang sinh Unit Test cho ${displayTarget}...`,
           cancellable: false,
         },
         async () => {
@@ -63,6 +92,7 @@ export class TestGenerationService {
             strategyName: config.promptStrategy,
             outputTestFilePath: defaultOutputPath,
             runCoverage: config.autoRunCoverage,
+            targetMethodName: options?.targetSymbol,
             dryRun: true, // Không chạm file đích trên đĩa trước khi người dùng xác nhận
           });
         }
@@ -104,14 +134,16 @@ export class TestGenerationService {
         }
       }
 
-      // Cập nhật dữ liệu thật lên Webview Panel
+      // Cập nhật dữ liệu thật lên Webview Panel (kèm đầy đủ Traceability AC/BR)
       panel.sendData({
-        serviceName: serviceFileName,
+        serviceName: displayTarget,
         strategy: config.promptStrategy,
         scenarios: result.processedOutput.testScenarios.map((s: any) => ({
           id: s.id,
           description: s.description,
           category: s.category,
+          acceptanceCriteriaRef: s.acceptanceCriteriaRef,
+          expectedBehavior: s.expectedBehavior,
           selected: true,
         })),
         testCode: result.processedOutput.testCode,

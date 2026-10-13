@@ -13,6 +13,7 @@ export interface ExtractOptions {
   requirementDoc?: string;
   existingTestPatterns?: string;
   targetClassName?: string;
+  targetMethodName?: string;
 }
 
 export class ContextExtractor {
@@ -55,9 +56,11 @@ export class ContextExtractor {
       : codeContext.classes[0];
 
     const targetClassName = mainClass ? mainClass.name : undefined;
-    const targetMethodNames = mainClass
-      ? mainClass.methods.map((m) => m.name)
-      : codeContext.functions.map((f) => f.name);
+    const targetMethodNames = options.targetMethodName
+      ? [options.targetMethodName]
+      : mainClass
+        ? mainClass.methods.map((m) => m.name)
+        : codeContext.functions.map((f) => f.name);
 
     // 4. Tạo AST Summary
     const astSummary = this.buildAstSummary(codeContext);
@@ -68,6 +71,7 @@ export class ContextExtractor {
       requirementDoc: rawRequirement.trim().length > 0 ? rawRequirement : undefined,
       existingTestPatterns: options.existingTestPatterns,
       className: targetClassName,
+      targetMethodName: options.targetMethodName,
       sourceLanguage: langInfo.name,
       testFramework: langInfo.defaultTestFramework,
       astSummary,

@@ -59,6 +59,10 @@ describe('DiscountCalculatorService (Training Exemplar)', () => {
         ? `\n\n### Business Requirements (Reference):\n${context.requirementDoc}`
         : '';
 
+    const targetMethodSection = context.targetMethodName
+      ? `\n\n### Target Method Focus:\nFocus test generation specifically on method: "${context.targetMethodName}()".`
+      : '';
+
     const userPrompt = `### EXEMPLAR 1 (Training Reference):
 Target Service:
 \`\`\`typescript
@@ -73,7 +77,7 @@ ${exemplarTest}
 ---
 
 ### NEW TASK:
-Generate a complete unit test suite for this target service, strictly adhering to the style shown above:${astSection}${reqSection}
+Generate a complete unit test suite for this target service, strictly adhering to the style shown above:${astSection}${reqSection}${targetMethodSection}
 
 \`\`\`typescript
 ${context.serviceCode}

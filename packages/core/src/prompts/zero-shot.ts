@@ -17,7 +17,11 @@ Follow these constraints strictly:
         ? `\n\n### Business Requirements (Reference):\n${context.requirementDoc}`
         : '';
 
-    const userPrompt = `Generate a complete unit test file for the following TypeScript service:${astSection}${reqSection}
+    const targetMethodSection = context.targetMethodName
+      ? `\n\n### Target Method:\nFocus test generation exclusively on method: "${context.targetMethodName}()".`
+      : '';
+
+    const userPrompt = `Generate a complete unit test file for the following TypeScript service:${astSection}${reqSection}${targetMethodSection}
 
 \`\`\`typescript
 ${context.serviceCode}

@@ -23,15 +23,25 @@ interface DatasetManifest {
   services: ManifestService[];
 }
 
+interface RunManifestEntry {
+  serviceId: string;
+  tier?: string;
+  model?: string;
+  strategy: string;
+  testFilePath: string;
+}
+
 function parseCliArgs(): {
   all: boolean;
   serviceIds: string[];
   customTestPath?: string;
+  manifestPath?: string;
 } {
   const args = process.argv.slice(2);
   let all = false;
   const serviceIds: string[] = [];
   let customTestPath: string | undefined;
+  let manifestPath: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -44,10 +54,12 @@ function parseCliArgs(): {
       serviceIds.push(...list);
     } else if (arg === '--test' && i + 1 < args.length) {
       customTestPath = path.resolve(args[++i]);
+    } else if (arg === '--manifest' && i + 1 < args.length) {
+      manifestPath = path.resolve(args[++i]);
     }
   }
 
-  return { all, serviceIds, customTestPath };
+  return { all, serviceIds, customTestPath, manifestPath };
 }
 
 function findMatchingService(
@@ -82,7 +94,7 @@ async function main() {
     fs.mkdirSync(resultsDir, { recursive: true });
   }
 
-  const { all, serviceIds, customTestPath } = parseCliArgs();
+  const { all, serviceIds, customTestPath, manifestPath: customManifestPath } = parseCliArgs();
 
   let targetServices: ManifestService[] = [];
   if (all) {
@@ -108,6 +120,25 @@ async function main() {
     targetServices = [defaultService];
     console.log('🎯 Chế độ chạy: Mặc định Pilot Service S01_DiscountCalculator.');
     console.log('💡 Gợi ý: Có thể dùng flag `--all` hoặc `--service <serviceId>` để chỉ định service khác.\n');
+  }
+
+  // 🔒 Kiểm tra an toàn: Không được dùng chung một custom test path cho nhiều services!
+  if (customTestPath && (all || targetServices.length > 1)) {
+    throw new Error(
+      `❌ Lỗi cấu hình an toàn: Cờ --test <path> chỉ được áp dụng cho đúng 1 service (ví dụ: --service S01 --test ...). Khi chạy ${targetServices.length} services hoặc --all, mỗi service bắt buộc phải dùng test suite tương ứng của mình!`
+    );
+  }
+
+  // Đọc run manifest nếu có
+  let batchManifestEntries: RunManifestEntry[] = [];
+  if (customManifestPath && fs.existsSync(customManifestPath)) {
+    try {
+      const rawManifest = JSON.parse(fs.readFileSync(customManifestPath, 'utf-8'));
+      batchManifestEntries = Array.isArray(rawManifest) ? rawManifest : rawManifest.runs || [];
+      console.log(`📋 Đã nạp batch run manifest: ${batchManifestEntries.length} bản ghi thí nghiệm.`);
+    } catch (e: any) {
+      console.warn(`⚠️ Không thể nạp manifest tại ${customManifestPath}: ${e.message}`);
+    }
   }
 
   const runner = new MutationRunner({ silent: true });
@@ -146,25 +177,58 @@ async function main() {
       'ground-truth': groundTruthSummary,
     };
 
-    // Kiểm tra xem có test file do mô hình sinh ra trong experiments/results hay không
-    const generatedTestConfigs = [
-      { strategy: 'hybrid', filePath: path.join(resultsDir, `${s.id}_hybrid.test.ts`) },
-      { strategy: 'zero-shot', filePath: path.join(resultsDir, `${s.id}_zero-shot.test.ts`) },
-      { strategy: 'few-shot', filePath: path.join(resultsDir, `${s.id}_few-shot.test.ts`) },
-      { strategy: 'cot', filePath: path.join(resultsDir, `${s.id}_cot.test.ts`) },
-    ];
+    // Tìm generated test từ manifest hoặc file hệ thống (flat / nested)
+    const strategies = ['hybrid', 'zero-shot', 'few-shot', 'cot'];
+    for (const strat of strategies) {
+      let testFileToRun: string | undefined;
 
-    for (const gen of generatedTestConfigs) {
-      if (fs.existsSync(gen.filePath)) {
-        console.log(`   -> Đang chạy Mutation Testing cho generated test [${gen.strategy}]...`);
+      // 1. Kiểm tra từ batch run manifest
+      const manifestMatch = batchManifestEntries.find(
+        (m) => (m.serviceId === s.id || m.serviceId.includes(s.id)) && m.strategy === strat && fs.existsSync(m.testFilePath)
+      );
+      if (manifestMatch) {
+        testFileToRun = manifestMatch.testFilePath;
+      }
+
+      // 2. Kiểm tra flat path: results/<serviceId>_<strat>.test.ts
+      if (!testFileToRun) {
+        const flatPath = path.join(resultsDir, `${s.id}_${strat}.test.ts`);
+        if (fs.existsSync(flatPath)) testFileToRun = flatPath;
+      }
+
+      // 3. Kiểm tra nested batch output: results/<tier>/<serviceId>/**/<strat>/generated.test.ts
+      if (!testFileToRun) {
+        const serviceBatchDir = path.join(resultsDir, s.tier, s.id);
+        if (fs.existsSync(serviceBatchDir)) {
+          const findInDir = (dir: string): string | undefined => {
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+              const full = path.join(dir, entry.name);
+              if (entry.isDirectory()) {
+                if (entry.name === strat) {
+                  const candidate = path.join(full, 'generated.test.ts');
+                  if (fs.existsSync(candidate)) return candidate;
+                }
+                const nested = findInDir(full);
+                if (nested) return nested;
+              }
+            }
+            return undefined;
+          };
+          testFileToRun = findInDir(serviceBatchDir);
+        }
+      }
+
+      if (testFileToRun && fs.existsSync(testFileToRun)) {
+        console.log(`   -> Đang chạy Mutation Testing cho generated test [${strat}] (${path.relative(process.cwd(), testFileToRun)})...`);
         const genSummary = await runner.runMutationTesting(
           servicePath,
-          gen.filePath,
+          testFileToRun,
           s.id,
-          gen.strategy
+          strat
         );
-        summaries[gen.strategy] = genSummary;
-        console.log(`      Score [${gen.strategy}]: ${genSummary.mutationScore}%`);
+        summaries[strat] = genSummary;
+        console.log(`      Score [${strat}]: ${genSummary.mutationScore}%`);
       }
     }
 

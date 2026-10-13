@@ -1,5 +1,13 @@
+import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
 import { HostToWebviewMessage, WebviewToHostMessage } from '../types';
 import { vscode } from '../vscode_shim';
+import { filterTestCodeByScenarios, ScenarioItem } from './test_code_filter';
+
+function getNonce(): string {
+  return crypto.randomBytes(16).toString('base64');
+}
 
 export class TestPreviewPanel {
   public static currentPanel: TestPreviewPanel | undefined;
@@ -10,6 +18,7 @@ export class TestPreviewPanel {
   private _disposables: any[] = [];
   private _targetOutputPath?: string;
   private _lastTestCode?: string;
+  private _lastScenarios?: ScenarioItem[];
   private _onAcceptCallback?: (testCode: string, outputPath: string) => void;
 
   public static createOrShow(extensionUri: any, initialData?: any): TestPreviewPanel {
@@ -55,31 +64,64 @@ export class TestPreviewPanel {
 
     this._panel.webview.html = this._getHtmlForWebview(this._panel.webview);
 
-    this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
+    if (this._panel && typeof this._panel.onDidDispose === 'function') {
+      this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
+    }
 
-    this._panel.webview.onDidReceiveMessage(
-      (message: WebviewToHostMessage) => {
-        switch (message.type) {
+    if (this._panel && this._panel.webview && typeof this._panel.webview.onDidReceiveMessage === 'function') {
+      this._panel.webview.onDidReceiveMessage(
+        (message: unknown) => {
+          if (!message || typeof message !== 'object') {
+            return;
+          }
+
+          const msg = message as WebviewToHostMessage;
+        if (typeof msg.type !== 'string') {
+          return;
+        }
+
+        switch (msg.type) {
           case 'ACCEPT_TEST': {
-            const testCode = message.payload?.testCode || this._lastTestCode || '';
-            const outputPath = message.payload?.outputPath || this._targetOutputPath;
-            if (outputPath && testCode) {
-              if (this._onAcceptCallback) {
-                this._onAcceptCallback(testCode, outputPath);
-              } else {
-                try {
-                  const fs = require('fs');
-                  const path = require('path');
-                  const dir = path.dirname(outputPath);
-                  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-                  fs.writeFileSync(outputPath, testCode, 'utf-8');
-                } catch (e: any) {
-                  vscode.window.showErrorMessage(`Lỗi lưu file: ${e.message}`);
-                }
+            let testCode = msg.payload?.testCode || this._lastTestCode || '';
+            const outputPath = msg.payload?.outputPath || this._targetOutputPath;
+
+            // Nếu webview gửi danh sách scenario được chọn, lọc mã test phía host để đảm bảo tính toàn vẹn
+            if (msg.payload?.selectedScenarioIds && this._lastScenarios && this._lastTestCode) {
+              testCode = filterTestCodeByScenarios(
+                this._lastTestCode,
+                msg.payload.selectedScenarioIds,
+                this._lastScenarios
+              );
+            }
+
+            if (!outputPath || !testCode) {
+              vscode.window.showWarningMessage('Không có mã test hoặc đường dẫn file hợp lệ để lưu!');
+              return;
+            }
+
+            // Kiểm tra bảo mật đường dẫn output path
+            const normalizedPath = path.normalize(outputPath);
+            if (normalizedPath.includes('..') && !path.isAbsolute(normalizedPath)) {
+              vscode.window.showErrorMessage('Đường dẫn lưu file không an toàn!');
+              return;
+            }
+
+            if (this._onAcceptCallback) {
+              try {
+                this._onAcceptCallback(testCode, normalizedPath);
+                vscode.window.showInformationMessage('✅ Đã lưu file test thành công vào workspace!');
+              } catch (e: any) {
+                vscode.window.showErrorMessage(`❌ Lỗi khi lưu file: ${e.message}`);
               }
-              vscode.window.showInformationMessage('✅ Đã lưu file test thành công vào workspace!');
             } else {
-              vscode.window.showInformationMessage('✅ Đã lưu file test thành công vào workspace!');
+              try {
+                const dir = path.dirname(normalizedPath);
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                fs.writeFileSync(normalizedPath, testCode, 'utf-8');
+                vscode.window.showInformationMessage('✅ Đã lưu file test thành công vào workspace!');
+              } catch (e: any) {
+                vscode.window.showErrorMessage(`❌ Lỗi lưu file: ${e.message}`);
+              }
             }
             break;
           }
@@ -96,11 +138,15 @@ export class TestPreviewPanel {
       null,
       this._disposables
     );
+    }
   }
 
   public sendData(data: HostToWebviewMessage['payload']): void {
     if (data && 'testCode' in data && (data as any).testCode) {
       this._lastTestCode = (data as any).testCode;
+    }
+    if (data && 'scenarios' in data && Array.isArray((data as any).scenarios)) {
+      this._lastScenarios = (data as any).scenarios;
     }
     this._panel.webview.postMessage({
       type: 'SET_PREVIEW_DATA',
@@ -119,11 +165,15 @@ export class TestPreviewPanel {
     }
   }
 
-  public _getHtmlForWebview(_webview: any): string {
+  public _getHtmlForWebview(webview: any): string {
+    const nonce = getNonce();
+    const cspSource = webview.cspSource || '';
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Preview Unit Test</title>
   <style>
@@ -186,18 +236,23 @@ export class TestPreviewPanel {
     .scenario-list {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
       margin-bottom: 16px;
     }
     .scenario-item {
       display: flex;
-      align-items: center;
-      gap: 10px;
+      flex-direction: column;
+      gap: 6px;
       background: var(--vscode-sideBar-background);
       border: 1px solid var(--vscode-widget-border);
-      padding: 8px 12px;
+      padding: 10px 12px;
       border-radius: 6px;
       font-size: 12px;
+    }
+    .scenario-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
     .category-tag {
       font-size: 10px;
@@ -205,6 +260,27 @@ export class TestPreviewPanel {
       border-radius: 3px;
       font-weight: 600;
       background: rgba(255,255,255,0.1);
+    }
+    .scenario-label {
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .trace-info {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding-left: 24px;
+      font-size: 11px;
+      opacity: 0.85;
+    }
+    .ac-badge {
+      display: inline-block;
+      color: var(--vscode-textLink-foreground, #4daafc);
+      font-weight: 500;
+    }
+    .expected-desc {
+      display: inline-block;
+      color: var(--vscode-descriptionForeground, #8b949e);
     }
     .code-container {
       background: var(--vscode-textCodeBlock-background);
@@ -219,11 +295,19 @@ export class TestPreviewPanel {
     }
     .action-bar {
       display: flex;
-      justify-content: flex-end;
-      gap: 10px;
+      justify-content: space-between;
+      align-items: center;
       margin-top: 20px;
       border-top: 1px solid var(--vscode-panel-border);
       padding-top: 14px;
+    }
+    .selection-summary {
+      font-size: 12px;
+      opacity: 0.85;
+    }
+    .buttons {
+      display: flex;
+      gap: 10px;
     }
     .btn {
       background: var(--vscode-button-background);
@@ -259,67 +343,183 @@ export class TestPreviewPanel {
     <div class="metric-item">🌿 Branch Coverage: <span class="metric-val" id="branchCov">Đang đo...</span></div>
   </div>
 
-  <div class="section-title">📋 Kịch Bản Kiểm Thử Đề Xuất (Acceptance Criteria)</div>
+  <div class="section-title">📋 Kịch Bản Kiểm Thử Đề Xuất (Acceptance Criteria Traceability)</div>
   <div class="scenario-list" id="scenarioList">
-    <div style="opacity: 0.7; font-size: 12px;">Đang tải danh sách kịch bản...</div>
+    <div style="opacity: 0.7; font-size: 12px;" id="loadingPlaceholder">Đang tải danh sách kịch bản...</div>
   </div>
 
   <div class="section-title">💻 Mã Unit Test Sinh Ra (Jest / TypeScript)</div>
   <pre class="code-container" id="codeContainer">// Đang phân tích mã nguồn và sinh test...</pre>
 
   <div class="action-bar">
-    <button class="btn btn-secondary" id="rejectBtn">❌ Hủy Bỏ</button>
-    <button class="btn" id="acceptBtn">💾 Chấp Nhận & Lưu File Test</button>
+    <div class="selection-summary" id="selectionSummary">Đã chọn: 0/0 kịch bản</div>
+    <div class="buttons">
+      <button class="btn btn-secondary" id="rejectBtn">❌ Hủy Bỏ</button>
+      <button class="btn" id="acceptBtn">💾 Chấp Nhận & Lưu File Test</button>
+    </div>
   </div>
 
-  <script>
+  <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
-    let currentTestCode = '';
+    let originalTestCode = '';
+    let currentFilteredCode = '';
+    let scenariosData = [];
+
+    function updateCodeView() {
+      const selectedIds = scenariosData.filter(s => s.selected !== false).map(s => s.id);
+      const summary = document.getElementById('selectionSummary');
+      if (summary) {
+        summary.textContent = 'Đã chọn: ' + selectedIds.length + '/' + scenariosData.length + ' kịch bản';
+      }
+
+      if (selectedIds.length === scenariosData.length) {
+        currentFilteredCode = originalTestCode;
+      } else if (selectedIds.length === 0) {
+        currentFilteredCode = '// Không có kịch bản test nào được chọn\\n';
+      } else {
+        // Lọc hiển thị mã test đơn giản phía client
+        const lines = originalTestCode.split(/\\r?\\n/);
+        const out = [];
+        let inTest = false;
+        let keep = false;
+        let depth = 0;
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          const isTestStart = /^(?:it|test)\\s*\\(/i.test(trimmed);
+          if (!inTest && isTestStart) {
+            inTest = true;
+            depth = 0;
+            keep = selectedIds.some(id => line.includes(id));
+          }
+
+          if (inTest) {
+            for (const ch of line) {
+              if (ch === '{') depth++;
+              else if (ch === '}') depth--;
+            }
+            if (keep) out.push(line);
+            if (depth <= 0 && (line.includes(');') || line.includes('});'))) {
+              inTest = false;
+              keep = false;
+            }
+          } else {
+            out.push(line);
+          }
+        }
+        currentFilteredCode = out.join('\\n');
+      }
+
+      const codeElem = document.getElementById('codeContainer');
+      if (codeElem) {
+        codeElem.textContent = currentFilteredCode;
+      }
+    }
 
     window.addEventListener('message', (event) => {
       const message = event.data;
-      if (message.type === 'SET_PREVIEW_DATA') {
-        const payload = message.payload;
-        if (payload.serviceName) {
-          document.getElementById('serviceName').textContent = payload.serviceName;
-        }
-        if (payload.strategy) {
-          document.getElementById('strategyBadge').textContent = payload.strategy.toUpperCase();
-        }
-        if (payload.testCode) {
-          currentTestCode = payload.testCode;
-          document.getElementById('codeContainer').textContent = payload.testCode;
-        }
-        if (payload.coverage) {
-          document.getElementById('lineCov').textContent = payload.coverage.lines + '%';
-          document.getElementById('branchCov').textContent = payload.coverage.branches + '%';
-        }
-        if (payload.syntaxValid !== undefined) {
-          document.getElementById('syntaxStatus').textContent = payload.syntaxValid ? '✅ Sẵn sàng' : '⚠️ Lỗi cú pháp';
+      if (!message || message.type !== 'SET_PREVIEW_DATA') return;
+      const payload = message.payload;
+      if (!payload) return;
+
+      if (payload.serviceName) {
+        document.getElementById('serviceName').textContent = payload.serviceName;
+      }
+      if (payload.strategy) {
+        document.getElementById('strategyBadge').textContent = payload.strategy.toUpperCase();
+      }
+      if (payload.testCode) {
+        originalTestCode = payload.testCode;
+        currentFilteredCode = payload.testCode;
+        document.getElementById('codeContainer').textContent = payload.testCode;
+      }
+      if (payload.coverage) {
+        document.getElementById('lineCov').textContent = payload.coverage.lines + '%';
+        document.getElementById('branchCov').textContent = payload.coverage.branches + '%';
+      }
+      if (payload.syntaxValid !== undefined) {
+        document.getElementById('syntaxStatus').textContent = payload.syntaxValid ? '✅ Hợp lệ' : '⚠️ Lỗi cú pháp';
+      }
+
+      // Render Scenarios an toàn qua DOM API (chống XSS)
+      const scList = document.getElementById('scenarioList');
+      if (payload.scenarios && Array.isArray(payload.scenarios)) {
+        scenariosData = payload.scenarios.map(s => ({
+          ...s,
+          selected: s.selected !== false
+        }));
+
+        while (scList.firstChild) {
+          scList.removeChild(scList.firstChild);
         }
 
-        // Render Scenarios
-        const scList = document.getElementById('scenarioList');
-        if (payload.scenarios && payload.scenarios.length > 0) {
-          scList.innerHTML = '';
-          payload.scenarios.forEach((s, idx) => {
-            const item = document.createElement('div');
-            item.className = 'scenario-item';
-            item.innerHTML = \`
-              <input type="checkbox" checked id="sc_\${idx}">
-              <span class="category-tag">\${s.category || 'General'}</span>
-              <label for="sc_\${idx}">\${s.description}</label>
-            \`;
-            scList.appendChild(item);
+        scenariosData.forEach((s, idx) => {
+          const item = document.createElement('div');
+          item.className = 'scenario-item';
+
+          const header = document.createElement('div');
+          header.className = 'scenario-header';
+
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = s.selected;
+          cb.id = 'sc_' + idx;
+          cb.addEventListener('change', () => {
+            s.selected = cb.checked;
+            updateCodeView();
           });
-        }
+
+          const tag = document.createElement('span');
+          tag.className = 'category-tag';
+          tag.textContent = s.category || 'General';
+
+          const label = document.createElement('label');
+          label.className = 'scenario-label';
+          label.htmlFor = 'sc_' + idx;
+          label.textContent = s.description || ('Scenario ' + (idx + 1));
+
+          header.appendChild(cb);
+          header.appendChild(tag);
+          header.appendChild(label);
+          item.appendChild(header);
+
+          // Traceability visual display
+          const traceBox = document.createElement('div');
+          traceBox.className = 'trace-info';
+
+          if (s.acceptanceCriteriaRef) {
+            const acBadge = document.createElement('span');
+            acBadge.className = 'ac-badge';
+            acBadge.textContent = '🎯 ' + s.acceptanceCriteriaRef;
+            traceBox.appendChild(acBadge);
+          }
+
+          if (s.expectedBehavior) {
+            const expSpan = document.createElement('span');
+            expSpan.className = 'expected-desc';
+            expSpan.textContent = '➡️ ' + s.expectedBehavior;
+            traceBox.appendChild(expSpan);
+          }
+
+          if (traceBox.children.length > 0) {
+            item.appendChild(traceBox);
+          }
+
+          scList.appendChild(item);
+        });
+
+        updateCodeView();
       }
     });
 
     document.getElementById('acceptBtn').addEventListener('click', () => {
+      const selectedIds = scenariosData.filter(s => s.selected).map(s => s.id);
       vscode.postMessage({
         type: 'ACCEPT_TEST',
-        payload: { testCode: currentTestCode }
+        payload: {
+          testCode: currentFilteredCode,
+          selectedScenarioIds: selectedIds
+        }
       });
     });
 
