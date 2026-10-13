@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 import { LanguageDetector } from '../../../core/src/extractor/language_detector';
 import { CoreGeneratorPipeline } from '../../../core/src/pipeline/generator_pipeline';
 import { PipelineResult } from '../../../core/src/pipeline/types';
@@ -315,33 +316,36 @@ export class TestGenerationService {
       return undefined;
     }
 
+    const sourceHash = crypto.createHash('sha256').update(serviceCode).digest('hex').slice(0, 12);
+
     const refiner = new MutationGuidedRefiner();
     const refinement = refiner.analyzeAndSuggestRefinement(summary, serviceCode);
 
     // 2. Hiển thị kết quả lên Preview Panel ở chế độ CHỈ XEM (READ-ONLY)
     // Ngăn chặn hoàn toàn việc ghi đè prompt phản hồi lên file test thật
     TestPreviewPanel.createOrShow(extensionUri, {
-      serviceName: `${serviceFileName} (Mutation Refinement - Read Only)`,
-      strategy: 'mutation-refinement',
+      serviceName: `${serviceFileName} (Mutation Suggestions - Read Only)`,
+      strategy: 'mutation-suggestions',
       isReadOnly: true,
       scenarios: refinement.suggestedScenarios.map((s) => ({
         id: s.id,
         description: s.description,
-        category: 'Mutation Refinement',
+        category: 'Mutation Suggestions',
         acceptanceCriteriaRef: s.targetMutantId,
         expectedBehavior: s.expectedAssertion,
         selected: true,
       })),
-      testCode: `// 🧬 MUTATION-GUIDED REFINEMENT CHO: ${serviceFileName}\n` +
+      testCode: `// 🧬 MUTATION-GUIDED TEST SUGGESTIONS CHO: ${serviceFileName}\n` +
+        `// 🔑 Source Hash (SHA-256): ${sourceHash}\n` +
         `// 🎯 Mutation Score ban đầu: ${refinement.initialMutationScore.toFixed(1)}%\n` +
         `// ⚠️ Số Mutants còn sống sót (Survived): ${refinement.survivedMutantsCount}\n` +
-        `// ℹ️ Chế độ xem phản hồi (Read-Only) - Không ghi đè lên file test hiện có\n\n` +
+        `// ℹ️ Chế độ xem phản hồi (Read-Only) - Phân tích & Gợi ý kịch bản, chưa qua vòng sinh lại tự động\n\n` +
         refinement.feedbackPrompt,
       syntaxValid: true,
     });
 
     vscode.window.showInformationMessage(
-      `🧬 Phân tích Mutation Refinement hoàn tất: ${refinement.survivedMutantsCount} mutants sống sót đã được tạo gợi ý phản hồi!`
+      `🧬 Phân tích Mutation-Guided Suggestions hoàn tất: ${refinement.survivedMutantsCount} mutants sống sót đã được tạo gợi ý phản hồi!`
     );
 
     return refinement;

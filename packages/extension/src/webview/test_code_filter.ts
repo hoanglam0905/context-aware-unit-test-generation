@@ -29,12 +29,18 @@ export function filterTestCodeByScenarios(
   if (!testCode || testCode.trim().length === 0) return testCode;
   if (!allScenarios || allScenarios.length === 0) return testCode;
 
-  // 1. Nếu chọn tất cả scenario, bảo toàn toàn bộ mã
-  if (selectedScenarioIds.length === allScenarios.length) {
+  const allScenarioIds = new Set(allScenarios.map((s) => s.id));
+  const selectedSet = new Set(selectedScenarioIds);
+
+  // 1. Kiểm tra chính xác xem toàn bộ các scenario hợp lệ có được chọn hay không (Set Equality)
+  const isAllSelected =
+    allScenarios.length > 0 &&
+    selectedSet.size === allScenarioIds.size &&
+    [...allScenarioIds].every((id) => selectedSet.has(id));
+
+  if (isAllSelected) {
     return testCode;
   }
-
-  const selectedSet = new Set(selectedScenarioIds);
 
   // 2. Parse source code thành AST
   const sourceFile = ts.createSourceFile(
@@ -149,18 +155,15 @@ export function filterTestCodeByScenarios(
       }
     }
 
-    // C. Nếu số lượng test block bằng số lượng scenarios, khớp theo vị trí thứ tự index
-    if (!matchedScenario && testBlocks.length === allScenarios.length) {
-      matchedScenario = allScenarios[index];
-    }
-
     // Kiểm tra xem block này có nên giữ lại hay không
     let shouldKeep = false;
     if (matchedScenario) {
       shouldKeep = selectedSet.has(matchedScenario.id);
     } else {
-      // Trường hợp không ánh xạ được: nếu đã bỏ chọn tất cả thì bỏ; nếu chọn một phần thì chỉ giữ nếu không có unselected match
-      shouldKeep = selectedScenarioIds.length > 0 && selectedScenarioIds.length === allScenarios.length;
+      // Trường hợp không ánh xạ được: cảnh báo và bảo toàn an toàn nếu người dùng không bỏ chọn tất cả
+      // Tránh âm thầm làm mất mã test ngoài ý muốn
+      console.warn(`[test_code_filter] Cảnh báo: Không thể ánh xạ test block "${tb.title}" với kịch bản nào. Bảo toàn test block để tránh mất mã.`);
+      shouldKeep = selectedSet.size > 0;
     }
 
     if (!shouldKeep) {

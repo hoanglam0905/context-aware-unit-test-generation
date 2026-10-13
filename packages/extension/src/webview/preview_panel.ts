@@ -93,9 +93,24 @@ export class TestPreviewPanel {
               return;
             }
 
-            // Host ưu tiên tuyệt đối target output path đã định, không cho phép webview ghi đè đường dẫn tùy ý
-            const outputPath = this._targetOutputPath || msg.payload?.outputPath;
-            let testCode = msg.payload?.testCode || this._lastTestCode || '';
+            // Bảo vệ an ninh tuyệt đối: CHỈ cho phép lưu vào target path đã được Host ghim trước đó
+            // Tuyệt đối không chấp nhận đường dẫn tùy ý gửi lên từ Webview payload
+            if (!this._targetOutputPath) {
+              vscode.window.showErrorMessage('Thao tác bị từ chối: Chưa có đường dẫn đích an toàn được ghim từ Host!');
+              return;
+            }
+
+            const outputPath = this._targetOutputPath;
+
+            // Kiểm tra bảo mật đường dẫn output path (ngăn chặn path traversal)
+            const normalizedPath = path.normalize(outputPath);
+            if (normalizedPath.includes('..') || !path.isAbsolute(normalizedPath)) {
+              vscode.window.showErrorMessage('Phát hiện đường dẫn không an toàn (Path Traversal)! Thao tác bị từ chối.');
+              return;
+            }
+
+            // Ưu tiên mã test từ cache của Host để đảm bảo tính toàn vẹn
+            let testCode = this._lastTestCode || msg.payload?.testCode || '';
 
             // Nếu webview gửi danh sách scenario được chọn, lọc mã test phía host để đảm bảo tính toàn vẹn
             if (msg.payload?.selectedScenarioIds && this._lastScenarios && this._lastTestCode) {
@@ -106,15 +121,8 @@ export class TestPreviewPanel {
               );
             }
 
-            if (!outputPath || !testCode) {
-              vscode.window.showWarningMessage('Không có mã test hoặc đường dẫn file hợp lệ để lưu!');
-              return;
-            }
-
-            // Kiểm tra bảo mật đường dẫn output path (ngăn chặn path traversal)
-            const normalizedPath = path.normalize(outputPath);
-            if (normalizedPath.includes('..') || (!path.isAbsolute(normalizedPath) && !this._targetOutputPath)) {
-              vscode.window.showErrorMessage('Phát hiện đường dẫn không an toàn (Path Traversal)! Thao tác bị từ chối.');
+            if (!testCode || testCode.trim().length === 0) {
+              vscode.window.showWarningMessage('Không có mã test hợp lệ để lưu!');
               return;
             }
 

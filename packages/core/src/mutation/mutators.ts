@@ -1,5 +1,13 @@
 import { Mutant, MutatorType } from './types';
 
+let tsModule: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  tsModule = require('typescript');
+} catch {
+  tsModule = null;
+}
+
 export class CodeMutatorGenerator {
   /**
    * Sinh danh sách các Mutants từ mã nguồn gốc đảm bảo tính hợp lệ cú pháp TypeScript
@@ -7,7 +15,7 @@ export class CodeMutatorGenerator {
   public generateMutants(sourceCode: string, fileName = 'service.ts'): Mutant[] {
     const mutants: Mutant[] = [];
     const lines = sourceCode.split(/\r?\n/);
-    let mutantCounter = 1;
+    const counter = { current: 1 };
 
     for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
       const line = lines[lineIdx];
@@ -50,18 +58,17 @@ export class CodeMutatorGenerator {
             // Đảm bảo không thay thế nhầm bên trong type annotation
             const mutatedLine = line.replace(m.pattern, m.replace);
             if (mutatedLine !== line) {
-              mutants.push(
-                this.createMutant(
-                  `MUT_${String(mutantCounter++).padStart(3, '0')}`,
-                  'CONDITIONAL_BOUNDARY',
-                  fileName,
-                  lineIdx + 1,
-                  line,
-                  mutatedLine,
-                  lines,
-                  lineIdx,
-                  m.desc
-                )
+              this.addMutantIfValid(
+                mutants,
+                counter,
+                'CONDITIONAL_BOUNDARY',
+                fileName,
+                lineIdx + 1,
+                line,
+                mutatedLine,
+                lines,
+                lineIdx,
+                m.desc
               );
             }
           }
@@ -79,18 +86,17 @@ export class CodeMutatorGenerator {
           if (m.pattern.test(line)) {
             const mutatedLine = line.replace(m.pattern, m.replace);
             if (mutatedLine !== line) {
-              mutants.push(
-                this.createMutant(
-                  `MUT_${String(mutantCounter++).padStart(3, '0')}`,
-                  'EQUALITY_OPERATOR',
-                  fileName,
-                  lineIdx + 1,
-                  line,
-                  mutatedLine,
-                  lines,
-                  lineIdx,
-                  m.desc
-                )
+              this.addMutantIfValid(
+                mutants,
+                counter,
+                'EQUALITY_OPERATOR',
+                fileName,
+                lineIdx + 1,
+                line,
+                mutatedLine,
+                lines,
+                lineIdx,
+                m.desc
               );
             }
           }
@@ -113,18 +119,17 @@ export class CodeMutatorGenerator {
           if (m.pattern.test(line)) {
             const mutatedLine = line.replace(m.pattern, m.replace);
             if (mutatedLine !== line) {
-              mutants.push(
-                this.createMutant(
-                  `MUT_${String(mutantCounter++).padStart(3, '0')}`,
-                  'BINARY_EXPRESSION',
-                  fileName,
-                  lineIdx + 1,
-                  line,
-                  mutatedLine,
-                  lines,
-                  lineIdx,
-                  m.desc
-                )
+              this.addMutantIfValid(
+                mutants,
+                counter,
+                'BINARY_EXPRESSION',
+                fileName,
+                lineIdx + 1,
+                line,
+                mutatedLine,
+                lines,
+                lineIdx,
+                m.desc
               );
             }
           }
@@ -144,18 +149,17 @@ export class CodeMutatorGenerator {
         }
 
         if (mutatedLine !== line) {
-          mutants.push(
-            this.createMutant(
-              `MUT_${String(mutantCounter++).padStart(3, '0')}`,
-              'BOOLEAN_LITERAL',
-              fileName,
-              lineIdx + 1,
-              line,
-              mutatedLine,
-              lines,
-              lineIdx,
-              desc
-            )
+          this.addMutantIfValid(
+            mutants,
+            counter,
+            'BOOLEAN_LITERAL',
+            fileName,
+            lineIdx + 1,
+            line,
+            mutatedLine,
+            lines,
+            lineIdx,
+            desc
           );
         }
       }
@@ -169,18 +173,17 @@ export class CodeMutatorGenerator {
           const mutatedVal = (val > 0.05 ? val - 0.05 : val + 0.05).toFixed(2);
           const mutatedLine = line.replace(decimalMatch[0], mutatedVal);
           if (mutatedLine !== line) {
-            mutants.push(
-              this.createMutant(
-                `MUT_${String(mutantCounter++).padStart(3, '0')}`,
-                'NUMERIC_LITERAL',
-                fileName,
-                lineIdx + 1,
-                line,
-                mutatedLine,
-                lines,
-                lineIdx,
-                `Thay đổi tỉ lệ thập phân ${decimalMatch[0]} thành ${mutatedVal}`
-              )
+            this.addMutantIfValid(
+              mutants,
+              counter,
+              'NUMERIC_LITERAL',
+              fileName,
+              lineIdx + 1,
+              line,
+              mutatedLine,
+              lines,
+              lineIdx,
+              `Thay đổi tỉ lệ thập phân ${decimalMatch[0]} thành ${mutatedVal}`
             );
           }
         }
@@ -192,18 +195,17 @@ export class CodeMutatorGenerator {
           const mutatedVal = String(Math.floor(val / 2));
           const mutatedLine = line.replace(largeIntMatch[0], mutatedVal);
           if (mutatedLine !== line) {
-            mutants.push(
-              this.createMutant(
-                `MUT_${String(mutantCounter++).padStart(3, '0')}`,
-                'NUMERIC_LITERAL',
-                fileName,
-                lineIdx + 1,
-                line,
-                mutatedLine,
-                lines,
-                lineIdx,
-                `Thay đổi ngưỡng số học ${largeIntMatch[0]} thành ${mutatedVal}`
-              )
+            this.addMutantIfValid(
+              mutants,
+              counter,
+              'NUMERIC_LITERAL',
+              fileName,
+              lineIdx + 1,
+              line,
+              mutatedLine,
+              lines,
+              lineIdx,
+              `Thay đổi ngưỡng số học ${largeIntMatch[0]} thành ${mutatedVal}`
             );
           }
         }
@@ -213,8 +215,9 @@ export class CodeMutatorGenerator {
     return mutants;
   }
 
-  private createMutant(
-    id: string,
+  private addMutantIfValid(
+    mutants: Mutant[],
+    counter: { current: number },
     mutatorType: MutatorType,
     fileName: string,
     lineNumber: number,
@@ -223,13 +226,18 @@ export class CodeMutatorGenerator {
     allLines: string[],
     lineIdx: number,
     description: string
-  ): Mutant {
+  ): void {
     const copy = [...allLines];
     copy[lineIdx] = mutatedCode;
     const mutatedFileContent = copy.join('\n');
 
-    return {
-      id,
+    // Xác thực cú pháp TypeScript tự động qua Compiler API transpileModule
+    if (!this.isValidSyntax(mutatedFileContent)) {
+      return;
+    }
+
+    mutants.push({
+      id: `MUT_${String(counter.current++).padStart(3, '0')}`,
       mutatorType,
       fileName,
       lineNumber,
@@ -237,6 +245,27 @@ export class CodeMutatorGenerator {
       mutatedCode: mutatedCode.trim(),
       mutatedFileContent,
       description,
-    };
+    });
+  }
+
+  public isValidSyntax(code: string): boolean {
+    if (!tsModule) return true;
+    try {
+      const result = tsModule.transpileModule(code, {
+        compilerOptions: {
+          module: tsModule.ModuleKind.CommonJS,
+          target: tsModule.ScriptTarget.ES2020,
+          noEmitOnError: false,
+        },
+        reportDiagnostics: true,
+      });
+
+      if (result.diagnostics && result.diagnostics.length > 0) {
+        return !result.diagnostics.some((d: any) => d.category === tsModule.DiagnosticCategory.Error);
+      }
+      return true;
+    } catch {
+      return false;
+    }
   }
 }

@@ -53,9 +53,39 @@ export class ContextExtractor {
     // 3. Trích xuất Method Slice nếu có targetMethodName
     let targetMethodSlice: MethodSlice | undefined;
     if (options.targetMethodName) {
-      for (const cls of codeContext.classes) {
-        const found = cls.methods.find((m) => m.name === options.targetMethodName);
-        if (found) {
+      if (options.targetClassName) {
+        // Chỉ định rõ Class mục tiêu: tìm kiếm chính xác trong class này
+        const targetCls = codeContext.classes.find((c) => c.name === options.targetClassName);
+        if (!targetCls) {
+          throw new Error(`Target class "${options.targetClassName}" was not found in service code.`);
+        }
+        const found = targetCls.methods.find((m) => m.name === options.targetMethodName);
+        if (!found) {
+          throw new Error(`Target method "${options.targetMethodName}" was not found in class "${options.targetClassName}".`);
+        }
+        const paramsStr = found.parameters.map((p) => `${p.name}: ${p.type}`).join(', ');
+        targetMethodSlice = {
+          className: targetCls.name,
+          methodName: found.name,
+          visibility: found.visibility,
+          parameters: found.parameters,
+          returnType: found.returnType,
+          signature: `${found.visibility ?? 'public'} ${found.name}(${paramsStr}): ${found.returnType}`,
+          sourceSlice: found.sourceSlice || (found.bodySnippet ? `${found.name}(${paramsStr}) ${found.bodySnippet}` : undefined),
+        };
+      } else {
+        // Không chỉ định Class: quét tất cả các class để phát hiện ambiguity nếu có nhiều hơn 1 class chứa method trùng tên
+        const matchingClasses = codeContext.classes.filter((c) => c.methods.some((m) => m.name === options.targetMethodName));
+        if (matchingClasses.length > 1) {
+          const classNames = matchingClasses.map((c) => c.name).join(', ');
+          throw new Error(
+            `Ambiguous method "${options.targetMethodName}" found in multiple classes (${classNames}). Please specify targetClassName.`
+          );
+        }
+
+        if (matchingClasses.length === 1) {
+          const cls = matchingClasses[0];
+          const found = cls.methods.find((m) => m.name === options.targetMethodName)!;
           const paramsStr = found.parameters.map((p) => `${p.name}: ${p.type}`).join(', ');
           targetMethodSlice = {
             className: cls.name,
@@ -66,21 +96,19 @@ export class ContextExtractor {
             signature: `${found.visibility ?? 'public'} ${found.name}(${paramsStr}): ${found.returnType}`,
             sourceSlice: found.sourceSlice || (found.bodySnippet ? `${found.name}(${paramsStr}) ${found.bodySnippet}` : undefined),
           };
-          break;
-        }
-      }
-
-      if (!targetMethodSlice) {
-        const foundFunc = codeContext.functions.find((f) => f.name === options.targetMethodName);
-        if (foundFunc) {
-          const paramsStr = foundFunc.parameters.map((p) => `${p.name}: ${p.type}`).join(', ');
-          targetMethodSlice = {
-            methodName: foundFunc.name,
-            parameters: foundFunc.parameters,
-            returnType: foundFunc.returnType,
-            signature: `function ${foundFunc.name}(${paramsStr}): ${foundFunc.returnType}`,
-            sourceSlice: foundFunc.sourceSlice || (foundFunc.bodySnippet ? `function ${foundFunc.name}(${paramsStr}) ${foundFunc.bodySnippet}` : undefined),
-          };
+        } else {
+          // Kiểm tra hàm độc lập ngoài class (standalone functions)
+          const foundFunc = codeContext.functions.find((f) => f.name === options.targetMethodName);
+          if (foundFunc) {
+            const paramsStr = foundFunc.parameters.map((p) => `${p.name}: ${p.type}`).join(', ');
+            targetMethodSlice = {
+              methodName: foundFunc.name,
+              parameters: foundFunc.parameters,
+              returnType: foundFunc.returnType,
+              signature: `function ${foundFunc.name}(${paramsStr}): ${foundFunc.returnType}`,
+              sourceSlice: foundFunc.sourceSlice || (foundFunc.bodySnippet ? `function ${foundFunc.name}(${paramsStr}) ${foundFunc.bodySnippet}` : undefined),
+            };
+          }
         }
       }
 
@@ -148,7 +176,7 @@ export class ContextExtractor {
       lines.push('=====================================================\n');
     }
     if (codeContext.classes && codeContext.classes.length > 0) {
-      lines.push('Classes:');
+      lines.push(targetMethodSlice ? '=== SURROUNDING CONTEXT & DEPENDENCIES (NOT DIRECTLY UNDER TEST) ===\nClasses:' : 'Classes:');
       for (const cls of codeContext.classes) {
         lines.push(`- Class ${cls.name}:`);
         if (cls.properties && cls.properties.length > 0) {

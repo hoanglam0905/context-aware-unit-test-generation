@@ -142,6 +142,37 @@ describe('Calculator', () => {
       expect(filtered).toContain('TC-001');
       expect(filtered).not.toContain('TC-002');
     });
+
+    it('so sánh tập hợp và không bị đánh lừa bởi mảng ID khác nhưng cùng độ dài', () => {
+      const filtered = filterTestCodeByScenarios(
+        sampleTestCode,
+        ['TC-UNKNOWN-1', 'TC-UNKNOWN-2', 'TC-UNKNOWN-3'],
+        sampleScenarios
+      );
+      expect(filtered).not.toContain('TC-001');
+      expect(filtered).not.toContain('TC-002');
+      expect(filtered).not.toContain('TC-003');
+    });
+
+    it('bảo toàn các test block không thể ánh xạ được kịch bản khi người dùng chọn một phần', () => {
+      const unmappedCode = `describe('Service', () => {
+  it('TC-001: test one', () => {});
+  it('helper sanity check without matching id or description', () => {});
+});`;
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const filtered = filterTestCodeByScenarios(
+        unmappedCode,
+        ['TC-001'],
+        [
+          { id: 'TC-001', description: 'test one' },
+          { id: 'TC-002', description: 'test two' },
+        ]
+      );
+      expect(filtered).toContain('TC-001: test one');
+      expect(filtered).toContain('helper sanity check without matching id or description');
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Không thể ánh xạ test block'));
+      warnSpy.mockRestore();
+    });
   });
 
   describe('3. Mutation-Guided Refinement Engine Verification (Section 5)', () => {
@@ -246,6 +277,30 @@ describe('Calculator', () => {
 
       expect(onAcceptSpy).not.toHaveBeenCalled();
     });
+
+    it('message handler từ chối lưu file khi chưa có target output path ghim từ Host', () => {
+      let messageHandler: ((msg: any) => void) | undefined;
+      const mockWebview = {
+        html: '',
+        onDidReceiveMessage: (fn: any) => { messageHandler = fn; },
+        postMessage: jest.fn(),
+      };
+      new (TestPreviewPanel as any)({ webview: mockWebview, onDidDispose: jest.fn() }, {});
+
+      expect(typeof messageHandler).toBe('function');
+      const onAcceptSpy = jest.fn();
+
+      // Không gọi panel.setTargetOutput() - payload cố ý truyền outputPath
+      messageHandler!({
+        type: 'ACCEPT_TEST',
+        payload: {
+          outputPath: '/workspace/service.test.ts',
+          testCode: 'test code',
+        },
+      });
+
+      expect(onAcceptSpy).not.toHaveBeenCalled();
+    });
   });
 
   describe('5. Method-Level Scoping Verification (Issue 4.2 & Section 5.3)', () => {
@@ -292,6 +347,43 @@ export class OrderService {
         extractor.extract({ serviceCode: code, targetMethodName: 'deleteUser' });
       }).toThrow('Target method "deleteUser" was not found in service code.');
     });
+
+    it('ContextExtractor ném lỗi Ambiguous method khi nhiều class có method trùng tên mà không chỉ định targetClassName', () => {
+      const { ContextExtractor } = require('../../core/src/extractor/context_extractor');
+      const extractor = new ContextExtractor();
+      const multiClassCode = `
+        export class UserService {
+          public findById(id: string): any { return null; }
+        }
+        export class OrderService {
+          public findById(id: string): any { return null; }
+        }
+      `;
+      expect(() => {
+        extractor.extract({ serviceCode: multiClassCode, targetMethodName: 'findById' });
+      }).toThrow('Ambiguous method "findById" found in multiple classes (UserService, OrderService). Please specify targetClassName.');
+    });
+
+    it('ContextExtractor thành công khi chỉ định targetClassName cụ thể giữa nhiều class có cùng tên method', () => {
+      const { ContextExtractor } = require('../../core/src/extractor/context_extractor');
+      const extractor = new ContextExtractor();
+      const multiClassCode = `
+        export class UserService {
+          public findById(id: string): any { return null; }
+        }
+        export class OrderService {
+          public findById(id: string): any { return null; }
+        }
+      `;
+      const ctx = extractor.extract({
+        serviceCode: multiClassCode,
+        targetMethodName: 'findById',
+        targetClassName: 'OrderService',
+      });
+      expect(ctx.promptContext.targetMethodSlice?.className).toBe('OrderService');
+      expect(ctx.promptContext.targetMethodSlice?.methodName).toBe('findById');
+      expect(ctx.promptContext.astSummary).toContain('=== SURROUNDING CONTEXT & DEPENDENCIES');
+    });
   });
 
   describe('6. Extension Mutation Refinement Integration (Issue 4.5)', () => {
@@ -322,6 +414,36 @@ export class OrderService {
 
       const res = await service.refineWithMutation(nonExistentUri, extensionUri);
       expect(res).toBeUndefined();
+    });
+  });
+
+  describe('7. Mutator Syntax-Validity Filter Verification (Issue 4.4)', () => {
+    it('CodeMutatorGenerator kiểm tra tính hợp lệ cú pháp TypeScript (isValidSyntax)', () => {
+      const { CodeMutatorGenerator } = require('../../core/src/mutation/mutators');
+      const generator = new CodeMutatorGenerator();
+      expect(generator.isValidSyntax('const x: number = 42;')).toBe(true);
+      expect(generator.isValidSyntax('const x = ;')).toBe(false);
+      expect(generator.isValidSyntax('function test( {')).toBe(false);
+    });
+
+    it('CodeMutatorGenerator chỉ sinh mutants hợp lệ cú pháp và không gây lỗi biên dịch', () => {
+      const { CodeMutatorGenerator } = require('../../core/src/mutation/mutators');
+      const generator = new CodeMutatorGenerator();
+      const serviceCode = `
+        export class SampleService {
+          public checkLimit(val: number): boolean {
+            if (val >= 100) {
+              return true;
+            }
+            return false;
+          }
+        }
+      `;
+      const mutants = generator.generateMutants(serviceCode);
+      expect(mutants.length).toBeGreaterThan(0);
+      for (const m of mutants) {
+        expect(generator.isValidSyntax(m.mutatedFileContent)).toBe(true);
+      }
     });
   });
 });

@@ -1,227 +1,212 @@
-# Đánh giá lại dự án và kế hoạch hoàn thiện
+# Đánh giá tổng thể dự án và kế hoạch hoàn thiện
 
 **Ngày rà soát:** 13/10/2026  
-**Commit được rà soát:** `0528ce8` — `feat: address post-commit review with syntax-safe mutation operators, AST filtering, and mutation refinement integration`  
-**Phạm vi:** toàn bộ mã nguồn ứng dụng, core pipeline, extension, benchmark, artifact, CI và tài liệu hiện có trong repository.
-
-> **Giới hạn theo yêu cầu của bạn:** bạn chưa bắt đầu fine-tuning. Lần rà soát này không chạy, sửa hoặc đề xuất quy trình huấn luyện; không gọi LLM và không thay đổi mã nguồn ứng dụng. Tôi chỉ đọc mã/tài liệu/artifact và cập nhật file đánh giá này. Không chạy test hay benchmark trong lượt này, vì vậy các kết quả thực nghiệm bên dưới được trích từ artifact đã lưu, chưa được chạy lại độc lập.
+**Commit được rà soát:** `fb76f7c` — `feat: address post-0528ce8 review with read-only mutation preview, AST host filtering, provider consent, and method AST slicing`  
+**Phạm vi:** mã nguồn ứng dụng, extension, core pipeline, bộ dữ liệu/benchmark hiện có, artifact, CI và tài liệu trong repository.  
+**Giới hạn:** đây là rà soát tĩnh. Tôi không chạy test, benchmark, LLM hay VS Code Extension Host trong lượt này. Theo yêu cầu trước đó, không đánh giá, sửa hoặc thực hiện bất kỳ bước nào liên quan đến fine-tuning. Các con số thực nghiệm bên dưới được đọc từ artifact đã lưu, chưa được chạy lại độc lập.
 
 ## 1. Điểm hiện tại
 
-Điểm là đánh giá kỹ thuật tham khảo từ trạng thái repository, không phải điểm chính thức của giảng viên. Điểm tổng hợp dùng trọng số: sáng tạo 25%, độ hoàn thiện 25%, độ tin cậy/an toàn 20%, bằng chứng đánh giá 20%, tài liệu/tái lập 10%.
+Điểm dưới đây là ước lượng kỹ thuật từ trạng thái repository, không phải điểm chính thức của giảng viên. Trọng số dùng để tổng hợp: sáng tạo 25%, hoàn thiện chức năng 25%, tin cậy/an toàn 20%, bằng chứng đánh giá 20%, tài liệu/tái lập 10%.
 
-| Hạng mục | Điểm | Nhận xét ngắn |
+| Hạng mục | Điểm | Nhận xét |
 |---|---:|---|
-| **Sáng tạo ứng dụng** | **8,8/10** | Đã thêm AST scenario filtering, method metadata, cloud consent và command mutation refinement; ý tưởng có tính ứng dụng rõ. Điểm chưa cao hơn vì refinement chưa thật sự chạy vòng sinh–đánh giá, và đang có đường ghi đè file bằng prompt. |
-| **Độ hoàn thiện chức năng** | **7,4/10** | Commit mới nối thêm nhiều luồng và phân biệt UAT tự động/thủ công. Tuy nhiên một số luồng chưa an toàn với trạng thái panel được tái sử dụng; method slice chỉ là metadata/chữ ký; UI vẫn cho chấp nhận lúc loading/lỗi. |
-| **Độ tin cậy và an toàn** | **6,8/10** | CSP, host path pinning, AST parser và consent modal là cải thiện. Refinement có thể hiển thị thống kê tổng hợp giả và có thể ghi prompt lên test file; preview filter phía client khác host filter. |
-| **Bằng chứng thực nghiệm** | **6,8/10** | Mutation operator mới giảm compile error còn 26/178, tỷ lệ hợp lệ khoảng 85,4%; có ground-truth artifact cho 15 service. Chưa có batch/evaluation artifact của test do LLM sinh; điểm mutation hiện 65,79% trên tập mutant đã thay đổi. |
-| **Tài liệu và khả năng tái lập** | **6,8/10** | CI đã thêm compile extension, dataset validation và package. Checklist minh bạch hơn nhưng vẫn có trạng thái Interactive đạt chưa kèm bằng chứng; README/báo cáo còn số liệu cũ và repository có nhiều bản đánh giá trùng. |
-| **Tổng thể hiện tại** | **7,5/10** | Có tiến bộ thực chất so với commit trước, nhất là lọc AST, consent, CI và tỷ lệ mutant hợp lệ. Điểm bị giữ lại bởi lỗi nghiêm trọng trong mutation refinement và thiếu bằng chứng chất lượng cho test LLM sinh. |
+| **Sáng tạo ứng dụng** | **8,8/10** | Kết hợp yêu cầu BA, cấu trúc mã nguồn và sinh unit test trong VS Code; có nhiều chiến lược prompt, chọn scenario, auto-fix và gợi ý dựa trên mutation. Phần mutation hiện mới đưa gợi ý, chưa tạo–chạy–đo lại test trong một vòng khép kín. |
+| **Độ hoàn thiện chức năng** | **7,8/10** | Luồng sinh có preview, dry-run, lưu sau khi chấp nhận; đã xử lý nhiều lỗi trạng thái panel và thêm lọc AST phía host. Còn các giới hạn ở mapping scenario, định danh method trùng/overload, mutation refinement và kiểm chứng trên Extension Host. |
+| **Độ tin cậy và an toàn** | **7,5/10** | Đã có consent theo cloud provider, panel chỉ xem cho refinement, CSP và lọc scenario phía host. Handler lưu file vẫn có nhánh chấp nhận đường dẫn tuyệt đối từ payload nếu không có target path; các luồng consent/lưu file chưa có bằng chứng chạy trên Host trong repository. |
+| **Bằng chứng đánh giá** | **6,8/10** | Có artifact ground-truth và mutation trên 15 service. Chưa có kết quả batch của test do các chiến lược prompt sinh ra, nên chưa chứng minh được chất lượng đầu ra chính của đề tài hoặc chiến lược nào tốt hơn. |
+| **Tài liệu và khả năng tái lập** | **7,5/10** | CI có typecheck, compile, Jest, validate dataset và đóng gói VSIX; checklist đã đánh dấu UAT Host đang chờ. Một số tài liệu vẫn diễn đạt tính năng/giao thức mạnh hơn phần triển khai và còn các bản kế hoạch trùng nhau. |
+| **Tổng thể hiện tại** | **7,8/10** | Sản phẩm có nền tảng ứng dụng rõ và đã sửa nhiều lỗi quan trọng. Điểm còn bị giới hạn chủ yếu bởi thiếu đánh giá đầu ra LLM, refinement chưa khép kín, các ánh xạ còn heuristic và chưa có bằng chứng demo trên VS Code thật. |
 
-Không thể cam kết điểm 10 nếu chưa biết rubric của giảng viên và chưa có demo/đánh giá người dùng. Những tiêu chí ở cuối tài liệu là điều kiện kỹ thuật để tiến gần mức đó.
+Muốn chấm 10/10 cần đối chiếu rubric của giảng viên, hoàn tất các luồng ưu tiên bên dưới và có bằng chứng chạy được trên commit cuối. Không thể bảo đảm điểm tuyệt đối chỉ từ rà soát mã nguồn.
 
-## 2. Điểm mạnh và những phần đã cải thiện
+## 2. Ưu điểm và phần đã được cải thiện
 
-1. **Ý tưởng có ích trong quy trình phát triển:** nối tài liệu nghiệp vụ với mã nguồn để hỗ trợ viết unit test ngay trong IDE, giảm việc chuyển qua lại giữa tài liệu, code và công cụ AI.
-2. **Core có cấu trúc tương đối rõ:** parser/context extractor, requirement parser, bốn prompt strategy, LLM gateway, post-processor, coverage runner và mutation runner được tách thành module.
-3. **Có ứng dụng VS Code để trình diễn:** CodeLens, sidebar, preview, cấu hình model, sinh test theo file/method và lưu sau khi người dùng chấp nhận.
-4. **Webview an toàn hơn:** CSP nonce và `textContent` giảm rủi ro XSS từ nội dung model; host cố định output path nếu đã được cấu hình.
-5. **Scenario filtering chuyển sang TypeScript AST** ở host, tránh tự đếm brace để cắt block test. Mapping scenario–test vẫn đang dùng title/description/thứ tự nên chưa chắc chắn trong mọi output.
-6. **Method context được nhận diện:** extractor có `targetMethodSlice` và prompt nhận signature mục tiêu; source code và AST summary toàn file vẫn được gửi kèm, nên chưa phải source slice biệt lập.
-7. **Có command mutation refinement và privacy modal cloud.** Đây là tiến bộ về mặt luồng sản phẩm, nhưng code refinement hiện có lỗi dùng summary giả và liên kết trạng thái panel; xem mục 4.5.
-8. **Mutation artifact mới có tỷ lệ mutant hợp lệ tốt hơn** so với lần trước; điểm số không so trực tiếp được vì tập mutant và toán tử đã đổi.
-9. **CI workflow đã thêm** compile extension, dataset validation và đóng gói VSIX; checklist hiện tách kiểm chứng tự động khỏi thao tác trên Extension Host.
+1. **Đề tài có giá trị sử dụng cụ thể:** đưa requirement/acceptance criteria và mã nguồn vào một quy trình sinh unit test ngay trong IDE; giảm thao tác chuyển ngữ cảnh giữa tài liệu, editor và công cụ AI.
+2. **Kiến trúc có các lớp chức năng rõ:** parser/context extractor, requirement parser, prompt strategies, gateway cho model, post-processing, validation, runner, metrics và extension UI được tổ chức thành module.
+3. **Có sản phẩm để trình diễn:** extension có CodeLens, sidebar, cấu hình provider, sinh theo file hoặc symbol, preview, chọn scenario và lưu sau khi người dùng chấp nhận.
+4. **Bảo vệ nội dung preview tốt hơn:** Webview dùng CSP nonce và `textContent`/DOM API cho dữ liệu scenario; panel được tái sử dụng thì reset callback và output path cũ. Refinement mở chế độ read-only và ẩn nút lưu.
+5. **Lọc scenario được làm ở phía host bằng TypeScript AST:** preview nhận mã đã lọc từ host và khi lưu, host lọc lại theo scenario ID; đã bổ sung nhận diện một số dạng `it.each`/`test.each`.
+6. **Xử lý consent cloud rõ hơn:** xác nhận được lưu theo provider; biến môi trường chỉ nhận giá trị `true` hoặc `1`, không coi chuỗi tùy ý như `false` là đồng ý.
+7. **Method context tiến thêm một bước:** extractor lấy source slice từ AST, đưa phần triển khai mục tiêu vào prompt và báo lỗi khi không tìm thấy method. Tuy nhiên prompt vẫn gửi toàn bộ source và summary cấu trúc vẫn liệt kê toàn file.
+8. **Mutation refinement không còn tự bịa số liệu:** khi không tìm thấy summary phù hợp, command báo thiếu artifact và dừng; kết quả đang được hiển thị dưới dạng phản hồi chỉ xem, không thể ghi đè file test.
+9. **Checklist UAT phân biệt automated với Extension Host:** trạng thái tương tác chưa có bằng chứng đã được chuyển về chờ kiểm chứng.
+10. **CI có các bước quan trọng:** workflow cài dependencies, typecheck, compile extension, chạy Jest, validate dataset và package VSIX. Mutation benchmark chạy riêng, không nằm trong workflow CI hiện tại.
 
-## 3. Bằng chứng đang có và giới hạn kết luận
+## 3. Bằng chứng hiện có và giới hạn của bằng chứng
 
-- `experiments/results/ground_truth_eval_summary.json` ghi **15/15 ground-truth suites pass**, tổng **133 test**. Artifact báo line coverage trung bình **98,09%** và branch coverage trung bình **91,76%**. Đây chứng minh bộ test chuẩn hiện có chạy qua trong lần ghi artifact; nó **không** chứng minh test do LLM sinh đạt chất lượng tương tự.
-- `experiments/results/mutation_summary.json` và `mutation_report.md` ở commit mới ghi **178 mutant**, trong đó **152 hợp lệ**, **100 killed**, **52 survived**, **26 compile error**, score tổng hợp **65,79%** trên mutant hợp lệ. Tỷ lệ hợp lệ khoảng **85,4%**, cải thiện rõ. Một số service vẫn có 100% trên mẫu nhỏ (ví dụ S06 3 mutant, S11 3, S12 4); report cần trình bày cả denominator và không so trực tiếp với artifact cũ vì tập mutation đã thay đổi.
-- `experiments/results/` hiện có ba artifact: ground-truth summary, mutation summary và mutation report. Chưa có `batch_run_manifest.json`, `batch_summary.csv` hay kết quả evaluation của test do model/strategy sinh. Vì vậy chưa có bằng chứng trong workspace để xác nhận chiến lược nào tốt hơn, pass rate của test sinh ra, hay mutation score trên test sinh ra.
-- Dataset manifest ghi 15 service, 133 scenario, chia 9/3/3 service với 89/17/27 scenario. Validator kiểm tra phân hoạch, file, schema JSONL và một số mẫu chuỗi traceability; các bước đó không tương đương với đánh giá chuyên gia rằng từng scenario/expected behavior thật sự đúng BA và khớp assertion trong test.
-- `docs/ACCEPTANCE_CHECKLIST.md` đã phân biệt trạng thái CI với trạng thái Interactive; phần lớn luồng Interactive đang chờ kiểm chứng. Riêng UAT-03 vẫn ghi Interactive **ĐẠT** dù không có host evidence thấy trong repository. Test path traversal trong `acceptance.test.ts` chỉ kiểm tra giá trị `_targetOutputPath`, chưa gửi payload độc hại và xác nhận host từ chối ghi file.
-- `experiments/results/` vẫn chỉ có ground-truth summary và mutation artifacts; chưa có batch manifest/output/evaluation của test do LLM sinh. Module refinement có command mới nhưng chưa có artifact chứng minh test được sinh thêm và mutant sống sót bị diệt sau vòng sửa.
+- `experiments/results/ground_truth_eval_summary.json` ghi **15/15 ground-truth suites pass**, tổng **133 test**; artifact báo line coverage trung bình **98,09%** và branch coverage trung bình **91,76%**. Đây là kết quả của bộ ground-truth trong lần chạy được ghi nhận, không chứng minh test do LLM sinh đạt cùng mức.
+- `experiments/results/mutation_summary.json` và `mutation_report.md` ghi **178 mutant**, gồm **152 hợp lệ**, **100 killed**, **52 survived**, **26 compile error**. Mutation score trên 152 mutant hợp lệ là **65,79%**; tỷ lệ mutant hợp lệ là khoảng **85,4%**. Một số service đạt 100% với số mutant hợp lệ ít, nên cần xem cả mẫu số.
+- Dataset manifest có **15 service, 133 scenario**, phân bổ 9/3/3 service và 89/17/27 scenario theo các nhóm hiện tại. Validator kiểm tra cấu trúc, file, schema và một số quy tắc chuỗi; nó không tự chứng minh tính đúng nghiệp vụ hoặc assertion có thực sự kiểm tra acceptance criteria.
+- Thư mục `experiments/results/` có artifact ground-truth và mutation, nhưng không thấy batch manifest/kết quả đánh giá test do prompt strategy sinh. Vì thế hiện chưa có số đo trực tiếp cho pass rate, syntax rate, coverage/mutation score của test sinh ra, hoặc so sánh bốn chiến lược.
+- `docs/ACCEPTANCE_CHECKLIST.md` ghi UAT tương tác trên Extension Host đang chờ kiểm chứng. Workflow CI không chạy mutation benchmark toàn bộ; dòng checklist cần tiếp tục nêu rõ benchmark này là lệnh chạy độc lập.
+- Không có lệnh test/benchmark nào được chạy trong lần rà soát này. Các kết luận về trạng thái mã dựa trên đọc source/test/docs và artifact trong repository.
 
-## 4. Các vấn đề còn tồn tại và cách hoàn thiện
+## 4. Lỗi và việc còn thiếu — vì sao, cách sửa, kết quả mong đợi
 
-### 4.1. Checklist UAT đã minh bạch hơn nhưng vẫn còn dòng thiếu bằng chứng
+### P1 — Mutation refinement mới tạo gợi ý, chưa phải vòng tự cải thiện
 
-**Hiện trạng:** Checklist mới tách “Tự động (CI/Jest)” khỏi “Interactive (VS Code Host)” và phần lớn host UAT đang chờ kiểm chứng. Tuy nhiên UAT-03 vẫn đánh dấu Interactive `ĐẠT` mà repository chưa có log/ảnh Extension Host; checklist còn gọi mọi lệnh trong bảng là được tự động hóa qua CI, trong khi workflow không chạy `experiment:mutation --all`. Một số cột tự động cũng mạnh hơn kiểm tra thực tế: UAT-06 test chỉ set rồi đọc `_targetOutputPath`, không gửi path traversal và xác nhận không có file ngoài ý muốn.
+**Hiện trạng:** code tìm summary theo ID đã chuẩn hóa và dùng `MutationGuidedRefiner` để phân tích mutant còn sống sót, tạo scenario gợi ý cùng feedback prompt. Panel là read-only, không ghi prompt đè lên test. Command chưa gọi LLM để sinh test bổ sung, chưa chạy test mới, và chưa chạy mutation lần hai. Summary cũng được ghép theo service ID nhưng chưa xác minh hash/commit của source tương ứng.
 
-**Vì sao phải sửa:** Tách cấp độ kiểm thử là tiến bộ, nhưng một ô `ĐẠT` chưa có evidence và nhầm unit test với kiểm thử luồng thật vẫn có thể làm sai kết luận khi chấm/demo.
+**Vì sao cần sửa:** tên gọi và báo cáo có thể khiến người nghe hiểu rằng hệ thống đã tự tinh chỉnh và cải thiện mutation score. Artifact cũ của cùng service có thể không còn đúng với phiên bản source hiện tại.
 
-**Cách sửa:** Đổi riêng UAT-03 Interactive thành `Chờ kiểm chứng`; ghi rõ mutation benchmark là lệnh chạy riêng nếu không nằm trong CI. Sửa UAT-06 thành kiểm thử message handler với path độc hại, callback và filesystem tạm. Gắn từng trạng thái automated với test cụ thể; gắn trạng thái host với ngày chạy, VS Code version, commit, log/ảnh.
+**Cách sửa:** trước mắt gọi đúng bản chất là **phân tích và đề xuất test từ mutation**; kiểm tra summary có manifest gồm service ID, đường dẫn chuẩn, source hash và cấu hình chạy. Nếu phát triển thành refinement thật, nối luồng: lấy mutant sống sót → sinh test bổ sung → kiểm tra cú pháp → chạy test → chạy lại mutation → ghi score trước/sau cùng artifact. Không hiển thị kết quả cải thiện nếu chưa có lần chạy sau.
 
-**Sau khi sửa:** Checklist phân biệt được “có test tự động cho một thành phần” với “người dùng đã chạy thành công toàn luồng”.
+**Sau khi sửa:** người dùng biết rõ đây là gợi ý hay vòng tự động hoàn chỉnh; số liệu luôn gắn với đúng source; nếu hoàn tất vòng khép kín, mức cải thiện có thể được xác nhận bằng artifact trước/sau.
 
-**Hoàn tất khi:** Không còn trạng thái interactive `ĐẠT` thiếu bằng chứng; mọi dòng tự động tương ứng với test thật đang được CI chạy.
+**Hoàn tất khi:** không dùng summary sai phiên bản; UI và báo cáo không gọi gợi ý là kết quả refinement đã được xác minh; nếu tuyên bố tự cải thiện thì có test code được sinh và mutation run trước/sau.
 
-### 4.2. Lọc AST ở host tốt hơn, nhưng mapping và preview vẫn có thể lệch
+### P1 — Ánh xạ scenario với test AST vẫn dựa vào tiêu đề và thứ tự
 
-**Hiện trạng:** Host filter trong `test_code_filter.ts` đã chuyển sang TypeScript AST, đây là sửa đúng. Tuy nhiên scenario được ghép theo `title.includes(id)`, 25 ký tự đầu description, rồi fallback theo vị trí nếu số test block bằng số scenario. `it.each(...)` chưa được nhận diện; nếu parser không tìm ra block nào thì hàm trả nguyên code. Trong khi đó `preview_panel.ts` vẫn lọc code hiển thị bằng thuật toán client-side dựa trên dòng/ID, còn host khi bấm lưu chạy AST filter lần nữa.
+**Hiện trạng:** AST giúp xác định vùng `it`/`test`, nhưng ghép với scenario bằng cách tìm ID trong title, so một phần đầu description hoặc dùng thứ tự khi số test block bằng số scenario. Nhánh tối ưu “chọn tất cả” so sánh số lượng ID với số scenario, chưa xác minh tập ID có đúng bằng tập ID hợp lệ. Test parameterized được nhận diện như một block; từng dòng dữ liệu bên trong không được ánh xạ thành scenario riêng.
 
-**Vì sao phải sửa:** Mapping theo chuỗi hoặc thứ tự có thể gán nhầm khi title gần giống, model đổi cách đặt tên, có test phụ hoặc test parameterized. UI và file lưu dùng hai thuật toán khác nhau nên người dùng có thể duyệt một bộ test nhưng lưu bộ khác.
+**Vì sao cần sửa:** title do model viết có thể thiếu ID, bị trùng hoặc không theo đúng thứ tự scenario. Khi chọn một phần, test không ghép được có thể bị loại mà không báo; khi có số ID sai nhưng số lượng trùng, host có thể giữ nguyên toàn bộ code.
 
-**Cách sửa:** Tạo ID ổn định cho test block và truyền mapping từ post-processor về UI/host, không suy luận theo title/position. Dùng cùng một kết quả lọc của host để cập nhật preview; xử lý `it.each`, `test.each`, `concurrent` hoặc báo rõ cú pháp chưa hỗ trợ. Với block không mapping được, dừng lưu và yêu cầu người dùng xem lại thay vì trả nguyên hoặc cắt theo dự đoán.
+**Cách sửa:** yêu cầu output có marker ổn định chứa scenario ID ngay cạnh test, hoặc tạo mapping rõ ràng từ test node sang scenario trong kết quả model. Xác nhận tập ID được chọn bằng so sánh tập hợp, kiểm tra mapping 1–1 và hiển thị cảnh báo/dừng nếu mơ hồ. Quy định rõ cách xử lý `each` và dữ liệu test parameterized; không âm thầm bỏ test không ánh xạ được.
 
-**Sau khi sửa:** Preview và file lưu là cùng một nội dung; chọn/bỏ chọn từng scenario luôn ánh xạ rõ tới test tương ứng.
+**Sau khi sửa:** checkbox, code preview và file lưu có mapping có thể dự đoán; test không bị mất do khác cách đặt tiêu đề.
 
-**Hoàn tất khi:** Có kiểm chứng cho title không chứa ID, title trùng/gần giống, test parameterized, test phụ, zero selection và trường hợp mapping thất bại; nội dung preview bằng nội dung sẽ ghi file.
+**Hoàn tất khi:** có kiểm chứng với title trùng/thiếu ID, scenario thiếu/thừa, ID sai, test lồng trong `describe`, `each` thường và `each` dạng template; trường hợp mơ hồ được báo rõ.
 
-### 4.3. Consent cloud đã có, nhưng phạm vi đồng ý còn quá rộng
+### P1 — Method-level prompt có source slice nhưng vẫn gửi toàn bộ file
 
-**Hiện trạng:** Cloud provider giờ hiển thị modal và dừng nếu người dùng không chọn đồng ý; `autoGenerateOnSave` fallback đã đổi sang `false`. Consent được lưu bằng một boolean chung cho mọi provider. `PRIVACY_CONSENT_ACKNOWLEDGED` cũng bỏ qua modal khi biến môi trường có giá trị truthy.
+**Hiện trạng:** extractor đưa source slice của method mục tiêu vào `targetMethodSlice`, ném lỗi nếu không tìm thấy tên. Tuy nhiên `promptContext.serviceCode` vẫn là raw source toàn file, `buildAstSummary` vẫn liệt kê các class/method khác, và lookup theo tên dừng ở method đầu tiên. Các overload hoặc method cùng tên ở nhiều class chưa được định danh duy nhất.
 
-**Vì sao phải sửa:** Người dùng đồng ý với một cloud provider có thể bị xem như đã đồng ý cho provider khác sau khi đổi cấu hình. Một biến môi trường có giá trị chuỗi `false` vẫn truthy trong JavaScript và có thể vô tình bỏ qua modal.
+**Vì sao cần sửa:** prompt vẫn có thể bị phân tán sang method khác; CodeLens có thể chọn nhầm overload/class mà chỉ truyền tên method. Điều này làm giảm độ tin cậy của lời khẳng định “sinh test đúng method được chọn”.
 
-**Cách sửa:** Gắn consent với provider và phạm vi dữ liệu được gửi; hỏi lại nếu provider thay đổi. Parse biến môi trường đúng boolean (`true`/`1`) hoặc bỏ đường bypass này; ghi rõ cách thu hồi consent. Giữ fallback auto-generate là `false`.
+**Cách sửa:** truyền định danh gồm class, tên, chữ ký và vị trí AST; từ chối khi lựa chọn không duy nhất. Gửi method source cùng dependency cần thiết (constructor, helper liên quan, imports/type) thay vì toàn bộ file nếu an toàn; nếu vẫn giữ toàn file, ghi rõ đây là context bổ trợ và xác minh output chỉ nhắm method đã chọn.
 
-**Sau khi sửa:** Quyết định gửi code/BA ra ngoài có phạm vi rõ và không bị chuyển ngầm sang dịch vụ khác.
+**Sau khi sửa:** luồng method-level có phạm vi xác định và kết quả dễ kiểm tra hơn, kể cả khi file có overload hoặc nhiều class.
 
-**Hoàn tất khi:** Từng provider được xác nhận riêng; giá trị env `false` không được coi là đồng ý; từ chối/thu hồi chặn request.
+**Hoàn tất khi:** có kiểm chứng method thường, overload, class trùng tên method, function độc lập, method không tồn tại và dependency riêng tư; ambiguity không được tự chọn ngầm.
 
-### 4.4. Mutation operators đã cải thiện nhưng chưa hoàn toàn cú pháp-an toàn
+### P1 — Mutation operators vẫn biến đổi theo dòng/regex
 
-**Hiện trạng:** Artifact mới giảm compile error từ 166/291 xuống **26/178**; 152 mutant hợp lệ, score **65,79%**. Tỷ lệ hợp lệ 85,4% là tiến bộ. Nhưng `mutators.ts` vẫn làm biến đổi theo dòng bằng regex, không phải AST rewrite như một số phần tài liệu diễn đạt; string/comment/type context có thể gây mutation sai hoặc compile error. Các service có score 100% vẫn chỉ có 3–4 mutant hợp lệ.
+**Hiện trạng:** `packages/core/src/mutation/mutators.ts` vẫn nhận diện/thay toán tử bằng regex trên từng dòng và lọc một số ngữ cảnh bằng chuỗi. Artifact còn 26 compile-error mutant trên tổng 178. Đây chưa phải AST rewrite; các mô tả “AST Mutators syntax-safe” trong báo cáo mạnh hơn cách triển khai hiện tại.
 
-**Vì sao phải sửa:** Số compile error đã thấp hơn nhưng vẫn có thể làm lệch phân bố giữa mutator/service. Điểm score cũng phụ thuộc tập operator hiện tại và không thể so thẳng với commit trước sau khi tập mutant thay đổi.
+**Vì sao cần sửa:** sửa nhầm literal/comment/type hoặc tạo mutant không hợp lệ có thể làm sai mẫu số và khiến mutation score phụ thuộc lỗi sinh mutant.
 
-**Cách sửa:** Ưu tiên AST node transformation cho operator; nếu giữ regex thì xác định token span bằng lexer/parser và bỏ qua literal/comment/type-only syntax. Phân loại 26 lỗi còn lại; báo tổng mutant, tỷ lệ hợp lệ, loại lỗi, score và denominator theo từng service/operator. Ghi rõ hai artifact dùng mutant set khác nhau; không gọi 100% trên mẫu nhỏ là chất lượng hoàn hảo.
+**Cách sửa:** ưu tiên sửa AST node với TypeScript Compiler API; nếu giữ một số operator dạng text, dùng lexer/parser để lấy đúng token span và loại trừ comment/literal/type-only context. Phân loại compile error theo nguyên nhân, ghi cấu hình operator/version và báo tổng, hợp lệ, compile error, killed, survived theo service/operator.
 
-**Sau khi sửa:** Mutation score phản ánh thay đổi hành vi thực, có tỷ lệ hợp lệ/denominator nhìn thấy được và có thể so sánh giữa lần chạy cùng cấu hình operator.
+**Sau khi sửa:** mutant tác động có chủ đích tới hành vi, tỷ lệ hợp lệ tăng và mutation score có thể tái lập theo đúng cấu hình.
 
-**Hoàn tất khi:** Mutation set qua kiểm tra cú pháp/type và sanity check; số mutant tối thiểu mỗi service/operator được công bố; report giải thích equivalent mutant và compile error.
+**Hoàn tất khi:** mỗi mutant qua syntax/type sanity check; báo cáo công bố denominator; compile error/equivalent mutant được giải thích; các service có mẫu nhỏ được ghi chú, không trình bày 100% như kết luận mạnh.
 
-### 4.5. Mutation refinement hiện có thể hiển thị số liệu giả và ghi đè test bằng prompt
+### P1 — Chưa có benchmark đầu ra của test do prompt sinh
 
-**Hiện trạng:** Command mới gọi `refineWithMutation`, nhưng đường dẫn `mutation_summary.json` dựa trên `__dirname` đã compile/package và VSIX không chứa thư mục `experiments`. Việc tìm kết quả lại so `serviceId` như `S01_DiscountCalculator` với basename file nguồn (thường là `service` hoặc tên class), nên thường không tìm được summary. Khi không tìm thấy, code tự dựng `MutationSummary` bằng công thức `mutants.length - 2`, đánh dấu hai mutant đầu sống sót và hiển thị score như kết quả thật mà không chạy mutant hay test. Sau đó command đặt feedback prompt vào trường `testCode` của preview chung, không gọi LLM để sinh test, không chạy test/mutant lại. Nếu preview đang mở từ lần Generate trước, `_targetOutputPath` và `_onAcceptCallback` cũ vẫn còn; bấm “Chấp nhận & Lưu” có thể ghi feedback prompt lên file test trước đó. Nút Accept cũng đang bật khi panel mới chỉ hiển thị trạng thái loading hoặc payload báo lỗi.
+**Hiện trạng:** artifact hiện tập trung vào ground-truth và mutation score của ground-truth. Không thấy kết quả sinh hàng loạt và đánh giá đầu ra cho Zero-shot, Few-shot, CoT, Hybrid.
 
-**Vì sao phải sửa:** Đây vừa là sai lệch số liệu vừa có nguy cơ phá nội dung test người dùng đã có. Một command được giới thiệu là refinement không được báo mutant/score giả hoặc dùng nút lưu test cho văn bản prompt.
+**Vì sao cần sửa:** mục tiêu nghiên cứu là đánh giá sinh test và so sánh chiến lược. Coverage tốt của test chuẩn chỉ xác nhận bộ chuẩn, không xác nhận model/chiến lược sinh test có hữu ích hơn.
 
-**Cách sửa:** Xóa hoàn toàn fabricated fallback; nếu không có summary khớp đúng service/source version thì báo “chưa có kết quả mutation” và không đưa ra score. Lưu manifest ánh xạ canonical service ID ↔ path/hash, hoặc chạy mutation thực trên test suite tương ứng. Tách refinement sang panel read-only, xóa callback/output path cũ và ẩn/vô hiệu hóa Accept; hoặc hoàn thiện đúng vòng: lấy survived mutant thật → gọi LLM → tạo test code → syntax/execution/mutation validate → chỉ cho lưu bản đã duyệt. Mỗi lần đổi nội dung panel phải reset target/callback. Disable Accept trong loading, khi error, khi code rỗng hoặc chưa hợp lệ.
+**Cách sửa:** chạy cùng tập service và cùng điều kiện cho từng chiến lược; cố định model/provider, temperature, token budget, timeout và phiên bản prompt. Lưu prompt/config, đầu ra thô, lỗi, thời gian/token, syntax/compile rate, test pass rate, coverage, mutation score và manifest theo commit. Dùng workspace tạm để test sinh không sửa dataset/gốc; có thể chạy lặp lại các ca có độ ngẫu nhiên và báo độ biến thiên. Đánh giá BA traceability bằng rubric do người chấm rà soát.
 
-**Sau khi sửa:** Không có metric bịa; refinement không thể ghi đè file test bằng prompt; chỉ test code đã sinh và được kiểm tra mới có thể lưu.
+**Sau khi sửa:** có bằng chứng trực tiếp để trả lời chiến lược nào sinh test hợp lệ, phát hiện lỗi tốt và bám requirement; kết luận có thể tái tạo.
 
-**Hoàn tất khi:** Không còn nhánh dựng summary giả; artifact khớp service và source hash; có kiểm thử click Accept sau khi tái sử dụng panel; kết quả refinement có mutation run trước/sau hoặc UI ghi rõ chỉ là gợi ý.
+**Hoàn tất khi:** artifact bao phủ mọi strategy được tuyên bố, ghi cấu hình và commit, có bảng so sánh cùng mẫu số và giới hạn; có đánh giá thủ công cho tính đúng nghiệp vụ.
 
-### 4.6. Method metadata đã có nhưng source vẫn là toàn file
+### P1 — Handler lưu file còn tin đường dẫn tuyệt đối từ Webview khi chưa ghim target
 
-**Hiện trạng:** Extractor tạo `targetMethodSlice` với class, method, parameters, return type và signature; prompt dùng chữ ký này. Nhưng `promptContext.serviceCode` vẫn nhận toàn bộ source, `buildAstSummary` vẫn liệt kê toàn bộ class/method. Nếu không tìm thấy method, `targetMethodSlice` chỉ vắng mặt, còn `targetMethodName` tiếp tục được gửi như prompt text. Overload và method trùng tên giữa class cũng không được xác định duy nhất.
+**Hiện trạng:** luồng generate thông thường gọi `setTargetOutput`, nên host dùng output path đã định. Tuy nhiên handler `ACCEPT_TEST` có fallback lấy `msg.payload.outputPath`; guard chặn `..` và đường dẫn tương đối không có target nhưng vẫn chấp nhận đường dẫn tuyệt đối bất kỳ nếu không có `_targetOutputPath`.
 
-**Vì sao phải sửa:** Đưa signature vào prompt giúp định hướng nhưng chưa bảo đảm output chỉ kiểm thử method mục tiêu. Tên không tồn tại hoặc trùng có thể tạo kết quả sai mà không báo lỗi.
+**Vì sao cần sửa:** một message lỗi hoặc bị giả mạo có thể yêu cầu ghi ngoài workspace trong các đường gọi panel không ghim target. Đây là nhánh dự phòng hiện không cần thiết cho luồng generate chuẩn.
 
-**Cách sửa:** Lấy AST node và source range thực của method, xác nhận symbol/class/overload trước khi gọi model; nếu không tìm thấy thì dừng và báo rõ. Gửi source slice method cùng dependency cần thiết, hoặc ghi tường minh phần code toàn file chỉ là context và kiểm tra output scope. Thêm kiểm thử cho overload/tên trùng, method thiếu, standalone function và nhiều class.
+**Cách sửa:** chỉ cho phép ghi khi host đã đặt target path. Chuẩn hóa path theo nền tảng, xác minh nó nằm trong workspace/đích được cho phép; không dùng `outputPath` do Webview gửi làm nguồn quyết định. Host cũng nên lấy code từ trạng thái preview của host và kiểm tra trạng thái/syntax trước khi ghi.
 
-**Sau khi sửa:** Method command có scope xác định, có lỗi đầu vào rõ ràng và không phụ thuộc riêng vào instruction trong prompt.
+**Sau khi sửa:** message từ Webview không thể chọn file đích tùy ý; kiểm tra đường dẫn phản ánh đúng quyền ghi thực tế.
 
-**Hoàn tất khi:** Prompt/output có target AST duy nhất; các trường hợp thiếu/trùng được xử lý; test không sinh suite cho method ngoài target.
+**Hoàn tất khi:** test handler với target hợp lệ, đường dẫn traversal, đường dẫn tuyệt đối ngoài workspace, separator Windows/Unix và không có target; xác nhận không tạo file ngoài ý muốn.
 
-### 4.7. Chưa có benchmark đầu ra của test do LLM sinh
+### P2 — Chất lượng và traceability của dataset cần người rà soát
 
-**Hiện trạng:** Batch runner và evaluation/mutation runner đã có; runner mutation đã hỗ trợ tìm output nested. Nhưng thư mục `experiments/results/` hiện chưa có batch manifest, batch summary hoặc generated test output. Artifact đang chứng minh ground truth và mutation của ground truth, chưa chứng minh chất lượng sản phẩm sinh test. README gốc mô tả ma trận 240 experiment nhưng không có artifact tương ứng trong workspace.
+**Hiện trạng:** validator kiểm tra phân hoạch, schema và một số quy tắc chuỗi. Kiểm tra cấu trúc không chứng minh scenario/expected behavior đúng yêu cầu, cũng không đảm bảo từng AC có assertion thực chất trong ground-truth test.
 
-**Vì sao phải sửa:** Đây là khoảng trống lớn nhất để kết luận ứng dụng có hiệu quả. Ground truth pass/coverage cao chỉ chứng minh test mẫu chuẩn tốt; không chứng minh LLM tạo được test đúng nghiệp vụ.
+**Vì sao cần sửa:** benchmark nhỏ nhưng nếu nhãn hoặc traceability sai thì mọi so sánh prompt có thể phản ánh lỗi dữ liệu thay vì năng lực model.
 
-**Cách sửa:** Chạy benchmark có kiểm soát sau khi luồng app/runner ổn định; lưu run ID, commit, provider/model/version, prompt strategy, tham số, thời gian, token/cost nếu có, raw response, test sau xử lý, lỗi và coverage/mutation result. So sánh các strategy trên cùng service/context; báo compile rate, execution/pass rate, line/branch coverage, mutation score và traceability theo service, cùng giới hạn mẫu. Không ghi số liệu mô phỏng hoặc kết quả từ ground truth như kết quả model.
+**Cách sửa:** lập bảng đối chiếu service → requirement → AC → scenario → test/assertion; rà soát bởi người hiểu nghiệp vụ và một người kiểm tra độc lập. Ghi nhận chỗ bất đồng, quyết định cuối và phiên bản dataset. Bổ sung nhóm ca đa dạng hơn nếu muốn khẳng định khả năng tổng quát ngoài 15 service hiện tại.
 
-**Sau khi sửa:** Có bằng chứng tái lập để trả lời hệ thống sinh được gì, so với baseline nào, trên phạm vi nào và thường thất bại ở đâu.
+**Sau khi sửa:** dữ liệu chuẩn có nguồn gốc và quy trình kiểm tra; phần kết luận nêu đúng phạm vi mà benchmark hỗ trợ.
 
-**Hoàn tất khi:** Có manifest nối được run → cấu hình → output → evaluation; bảng kết quả có cả thành công và lỗi; artifact được lưu và báo cáo trỏ đúng artifact.
+**Hoàn tất khi:** tất cả AC/scenario được truy vết tới assertion hoặc được giải thích vì sao không có assertion trực tiếp; có log người duyệt và danh sách giới hạn.
 
-### 4.8. Tài liệu đã thu hẹp tuyên bố polyglot nhưng vẫn cần chứng minh E2E TS/JS
+### P2 — Tài liệu có điểm lệch với cách triển khai và còn bản trùng
 
-**Hiện trạng:** README mới ghi Java/Python/Go/C# là prototype, đây là cải thiện. Tuy nhiên vẫn khẳng định TypeScript/JavaScript đã “kiểm chứng toàn diện End-to-End”; checklist hiện còn nhiều UAT Interactive chờ host. Trong code, CodeLens chỉ đăng ký TypeScript/JavaScript, còn runner/post-processor chính là Jest/TypeScript.
+**Hiện trạng:** `docs/COMPREHENSIVE_PROJECT_REPORT.md` gọi mutator là “AST Mutators syntax-safe” dù code biến đổi bằng regex theo dòng; phần refinement mô tả khả năng nâng độ nhạy nhưng chưa có vòng LLM sinh và chạy lại test để đo cải thiện. `README.md` có nhiều phần thiết kế/giả định bên cạnh phần đã triển khai. Repository còn cả `CONSOLIDATED_ISSUES_AND_FIX_PLAN.md` và bản `(1).md`, cùng `PRE_FINE_TUNING_READINESS_PLAN.md` với một số chủ đề giao nhau.
 
-**Vì sao phải sửa:** Phân biệt prototype đã tốt hơn, nhưng tuyên bố E2E phải có bằng chứng Extension Host và không được suy từ unit tests/ground truth suite.
+**Vì sao cần sửa:** khi demo/bảo vệ, người đọc khó phân biệt chức năng đã chạy được với thiết kế hoặc đề xuất; nhiều bản kế hoạch làm tăng rủi ro thông tin cũ mâu thuẫn.
 
-**Cách sửa:** Giữ scope công bố là TypeScript/Jest, JavaScript ở mức nào có thể chứng minh; chỉ dùng “E2E verified” sau khi có host run evidence theo commit. Các ngôn ngữ khác tiếp tục ghi prototype đến khi có adapter đầy đủ: parser/context, test framework, validator, runner và benchmark.
+**Cách sửa:** gắn nhãn rõ **Đã triển khai / Đã kiểm chứng / Chưa kiểm chứng / Đề xuất** cho từng tính năng; sửa claim AST và mutation refinement theo code; thêm commit, lệnh và artifact làm nguồn cho từng kết quả. Chọn một bản đánh giá hiện hành làm nguồn chính, thêm trang mục lục liên kết tới báo cáo/checklist và xử lý bản trùng theo trạng thái tài liệu, không để hai bản cùng được coi là chuẩn.
 
-**Sau khi sửa:** Người đọc không nhầm parser prototype với năng lực sinh và chạy test đã hoàn thiện.
+**Sau khi sửa:** báo cáo, README, checklist và demo cùng mô tả một trạng thái; giảng viên có thể lần từ claim đến mã, test hoặc artifact tương ứng.
 
-**Hoàn tất khi:** Ma trận ngôn ngữ nêu riêng parse/generate/validate/run; mọi tuyên bố E2E gắn với acceptance evidence.
+**Hoàn tất khi:** không còn claim “đã kiểm chứng/E2E” thiếu evidence; mọi số liệu gắn artifact và commit; tài liệu trùng được đánh dấu lưu trữ hoặc hợp nhất.
 
-### 4.9. Kiểm định traceability dữ liệu còn dựa nhiều vào cấu trúc chuỗi
+### P2 — Cần có bằng chứng UAT trên VS Code thật và luồng consent
 
-**Hiện trạng:** Validator kiểm tra phân hoạch service, schema và một số điều kiện ID/chuỗi. Kiểm tra requirement có nhánh regex chấp nhận từ khóa `Scenario` không gắn với số AC đang xét; validator không chứng minh expected behavior đúng nghiệp vụ, không chứng minh mỗi AC có assertion tương ứng trong test, và không ghi nhận người review nội dung.
+**Hiện trạng:** CI chạy typecheck, compile, Jest, dataset validation và package; các mục Interactive trong checklist đang chờ Host. Chưa thấy log/ảnh của Extension Development Host trong repository.
 
-**Vì sao phải sửa:** Manifest có thể hợp lệ về mặt JSON nhưng mapping BA → scenario → assertion vẫn sai hoặc chỉ đúng một phần. Các con số “0% leakage/traceability đã kiểm định” hiện dễ bị hiểu rộng hơn điều validator thật sự kiểm tra.
+**Vì sao cần sửa:** mock/Jest không cho thấy toàn bộ trải nghiệm hoạt động trên VS Code thật: CodeLens, quyền Webview, provider consent, progress, auto-fix và lưu file.
 
-**Cách sửa:** Tách rõ kiểm tra hình thức và review ngữ nghĩa. Làm rule AC/BR khớp đúng ID trong chính requirement; thêm report các AC chưa có scenario, scenario chưa có test block và assertion không truy được; thực hiện review chéo có người kiểm tra và lưu trạng thái/ghi chú. Mô tả split là “service-level partition” và không gọi nó là kiểm chứng mọi dạng nội dung trùng lặp.
+**Cách sửa:** chạy checklist trên đúng commit phát hành; ghi VS Code/Node, hệ điều hành, provider/model đã dùng, kết quả từng bước, ảnh/log và đường dẫn artifact. Kiểm tra cả từ chối consent, chấp nhận theo từng provider, hủy preview, lỗi model và lưu test.
 
-**Sau khi sửa:** Có thể kiểm toán từng liên kết requirement → scenario → test; tuyên bố về chất lượng dữ liệu phản ánh đúng mức kiểm chứng.
+**Sau khi sửa:** có thể chứng minh sản phẩm dùng được xuyên suốt thay vì chỉ compile hoặc pass unit test.
 
-**Hoàn tất khi:** Không còn AC tham chiếu không tồn tại; mọi mapping có bằng chứng assertion hoặc được đánh dấu rõ là chưa phủ; có biên bản review nội dung.
+**Hoàn tất khi:** UAT host có bằng chứng gắn commit; các lỗi phát hiện được xử lý; checklist không ghi `ĐẠT` trước khi có evidence.
 
-### 4.10. Tài liệu có tiến bộ nhưng còn số liệu cũ và nhiều bản đánh giá trùng
+### P2 — Claim hỗ trợ ngôn ngữ và nghiên cứu liên quan cần được giới hạn bằng chứng
 
-**Hiện trạng:** README đã ghi rõ một số ngôn ngữ là prototype, nhưng còn tuyên bố TypeScript/JavaScript E2E chưa có host evidence và mô tả RAG/LLM-as-Judge/240 experiments ở các phần thiết kế. `COMPREHENSIVE_PROJECT_REPORT.md` vẫn mô tả S01 là 9 mutant, 8 killed, score 88,89%, trong khi artifact mới là 13 total, 12 killed, 92,31%; report nói refinement tự động cải thiện test dù code mới chỉ hiển thị prompt. Git còn ba file đánh giá cùng chủ đề: hai bản ở root có hậu tố `(1)`/`(2)` và bản `docs/PRE_FINETUNING_REMAINING_ISSUES.md`.
+**Hiện trạng:** báo cáo mới phân biệt TypeScript/Jest là phạm vi benchmark chính và các parser khác là prototype; README vẫn có claim TypeScript/JavaScript “đã kiểm chứng toàn diện End-to-End”. Benchmark hiện có 15 service TypeScript/Jest, còn UAT Host chưa được xác nhận. Các phần Related Work và mốc năm trong README cần có trích dẫn/đường dẫn để người đọc kiểm chứng.
 
-**Vì sao phải sửa:** Người đọc có thể trích nhầm score hoặc kế hoạch; ba tài liệu tương tự làm mất một nguồn sự thật và gây lặp/chênh nội dung. Tài liệu dùng “tự động/refinement” cho luồng chưa tạo/chạy lại test.
+**Vì sao cần sửa:** parser nhận diện được ngôn ngữ không đồng nghĩa sinh, validate, chạy test và đo coverage/mutation thành công trên ngôn ngữ đó. Claim E2E hoặc novelty thiếu nguồn có thể bị phản biện.
 
-**Cách sửa:** Chọn một báo cáo đánh giá duy nhất làm canonical (giữ file trong `docs/`), hợp nhất thông tin mới cần thiết rồi loại bản trùng khỏi repository. Đồng bộ số mutation theo artifact commit `0528ce8`; sửa claim refinement và E2E theo code/evidence. Tách README quickstart khỏi nền tảng lý thuyết/proposal; đánh dấu feature hiện có, prototype và future work.
+**Cách sửa:** lập ma trận cho từng ngôn ngữ: parse, prompt, syntax validation, runner, coverage, benchmark, host evidence. Giới hạn claim theo cột đã chứng minh; gắn trích dẫn gốc cho nghiên cứu và nêu khác biệt cụ thể của đề tài, không chỉ so sánh khái quát.
 
-**Sau khi sửa:** Điểm số, phạm vi và trạng thái tính năng thống nhất giữa README, báo cáo, checklist và artifact; người chấm có một file đánh giá đầy đủ để tra cứu.
+**Sau khi sửa:** phạm vi sản phẩm và điểm mới được mô tả chính xác; đề tài tập trung vào nền tảng được kiểm chứng.
 
-**Hoàn tất khi:** Chỉ còn một file đánh giá canonical; số liệu khớp artifact; mọi claim E2E/refinement có evidence hoặc được hạ thành prototype.
+**Hoàn tất khi:** mọi claim ngôn ngữ/E2E/novelty có bằng chứng hoặc nguồn trực tiếp; phần prototype không bị trình bày như tính năng hoàn chỉnh.
 
-### 4.11. CI đã thêm các gate quan trọng; checklist cần khớp workflow
+## 5. Lộ trình ưu tiên để tiến gần 10/10
 
-**Hiện trạng:** Workflow mới đã chạy `npm ci`, typecheck, `compile:extension`, `npm test`, `dataset:validate`, package VSIX và upload artifact. Đây là cải thiện đáng kể. Tuy nhiên checklist nói toàn bộ lệnh kiểm chứng tự động qua Actions nhưng mutation `--all` không có trong workflow; workflow cũng chưa cài VSIX/khởi chạy VS Code Extension Host để kiểm tra tương tác. Việc tôi rà soát tĩnh không xác minh run xanh trên GitHub.
+### Giai đoạn A — Chốt tính đúng và an toàn
 
-**Vì sao phải sửa:** Tài liệu CI phải đúng với những gì workflow thực thi; build/package thành công chưa chứng minh extension cài và hoạt động trong host.
+1. Bịt nhánh ghi đường dẫn từ Webview; chỉ lưu vào host target đã xác minh.
+2. Chuẩn hóa scenario ID và mapping AST; từ chối trường hợp mơ hồ thay vì tự đoán.
+3. Định danh method bằng class + signature/AST symbol; giới hạn context theo method và dependency cần thiết.
+4. Gắn mutation summary với source hash/commit; giữ refinement ở đúng trạng thái “gợi ý” cho tới khi có vòng chạy lại thật.
+5. Chuyển mutation operator sang AST/token span và phân loại 26 compile-error mutants.
 
-**Cách sửa:** Sửa checklist để đánh dấu mutation full benchmark là lệnh thủ công/scheduled nếu chưa thêm job. Lưu link run CI theo commit. Thêm Extension Host smoke test ở pipeline release; kiểm tra package artifact được tạo từ đúng commit/version. Giữ mutation full run ở job riêng nếu thời gian PR không phù hợp.
+### Giai đoạn B — Chứng minh chất lượng và tính sáng tạo
 
-**Sau khi sửa:** Người đọc thấy chính xác gate nào tự động, gate nào thủ công; có bằng chứng CI và gói VSIX dùng được.
+6. Tạo batch benchmark cho các prompt strategies trên cùng đầu vào và điều kiện; lưu output, config, log, artifact và manifest.
+7. So sánh pass/syntax rate, coverage, mutation score, traceability BA, latency và token cost; báo mẫu số, biến thiên và giới hạn.
+8. Rà soát thủ công mapping AC → scenario → assertion; công bố rubric và kết quả đánh giá người dùng/nhà phát triển cho giá trị sử dụng trong IDE.
+9. Khi hoàn tất mutation feedback loop, đo trước/sau trên cùng mutant set để chứng minh lợi ích của tính năng sáng tạo này.
 
-**Hoàn tất khi:** Checklist khớp YAML; có CI run xanh gắn với release; VSIX cài/activate qua Extension Host.
+### Giai đoạn C — Chốt demo và khả năng tái lập
 
-## 5. Lộ trình ưu tiên để nâng điểm
+10. Chạy automated CI và UAT trên Extension Host ở commit phát hành; lưu bằng chứng dễ mở lại.
+11. Cập nhật báo cáo, README và checklist theo đúng trạng thái code; thêm nguồn cho related work và giới hạn hỗ trợ ngôn ngữ.
+12. Hợp nhất/đánh dấu các tài liệu kế hoạch trùng; giữ một file đánh giá hiện hành và liên kết từ tài liệu chính.
 
-### Giai đoạn A — Khóa tính đúng và độ tin cậy
+## 6. Tiêu chí nghiệm thu để tự tin hướng tới 10/10
 
-1. Sửa lỗi mutation refinement: bỏ summary giả, sửa mapping service, tách panel read-only/flow tạo test thật; reset target/callback khi đổi panel.
-2. Disable Accept khi đang loading, lỗi, output rỗng hoặc chưa được kiểm tra; kiểm tra handler lưu file với path độc hại.
-3. Dùng AST mapping ổn định cho scenario và cùng một kết quả host-side trong preview/lưu; hỗ trợ hoặc từ chối minh bạch `it.each`.
-4. Giới hạn target method bằng AST node/source range và báo lỗi method không tồn tại/trùng.
-5. Consent riêng theo provider; parse env đúng boolean. Phần fallback auto-generate đã fail-closed.
-6. Phân loại 26 compile-error mutant còn lại và trình bày denominator/tỷ lệ hợp lệ.
-7. Giữ checklist interactive ở trạng thái chờ tới khi có host evidence.
-
-### Giai đoạn B — Chứng minh sản phẩm tạo ra kết quả tốt
-
-1. Chạy batch thực với cấu hình được ghim và lưu run manifest/raw artifacts.
-2. Đo test sinh theo compile rate, pass rate, coverage, mutation, traceability và latency; so sánh prompt strategies trên cùng tập.
-3. Review nội dung benchmark/mapping BA; không dùng pass của ground truth làm bằng chứng cho output LLM.
-4. Bổ sung smoke/integration UAT cho VS Code và lưu ảnh/log theo release; workflow CI hiện đã build/package nhưng chưa chạy Extension Host.
-
-### Giai đoạn C — Hoàn thiện phạm vi, trình bày và tính sáng tạo
-
-1. Tiếp tục công bố TypeScript/Jest là phạm vi benchmark; giữ các parser khác ở trạng thái prototype cho đến khi có runner.
-2. Đồng bộ README/report/checklist theo artifact mới và gộp các file đánh giá trùng thành một nguồn chính.
-3. Làm điểm nhấn sáng tạo có kết quả đo được: BA-to-test traceability phát hiện AC chưa phủ hoặc mutation-guided refinement có score trước/sau thật.
-4. Nếu có điều kiện, đánh giá QA/developer về thời gian, test được chấp nhận/chỉnh sửa và mức hữu ích; nêu số người và cách chấm.
-
-## 6. Tiêu chí để tự tin hướng tới 10/10
-
-- [ ] Luồng chính chạy được trong VS Code thật: tìm requirement, sinh preview, chọn test, chạy/hiển thị trạng thái, lưu hoặc hủy.
-- [ ] Accept bị khóa khi loading/lỗi; panel refinement không thể ghi prompt hoặc dữ liệu cũ vào file test.
-- [ ] Preview và file lưu dùng cùng mapping test AST; trường hợp mơ hồ được báo thay vì lưu khác preview.
-- [ ] Cloud consent có phạm vi provider rõ; giá trị env `false` không bị coi là đã đồng ý.
-- [ ] Method generation xác định target AST duy nhất, kiểm tra method không tồn tại/trùng và kiểm soát source scope.
-- [ ] Mutation refinement chỉ báo số liệu chạy thật; có test code và mutation result trước/sau nếu tuyên bố đã cải thiện.
-- [ ] Mutation benchmark có tỷ lệ mutant hợp lệ đủ cao, denominator rõ và không phóng đại score từ mẫu nhỏ.
-- [ ] Có benchmark thật của output model, raw artifacts, cấu hình tái lập và phân tích lỗi; kết quả ground truth được báo riêng.
-- [ ] BA → scenario → assertion có mapping kiểm chứng được; nội dung dataset có review và provenance rõ.
-- [ ] Phạm vi ngôn ngữ trong UI/docs đúng với khả năng parse, generate, validate và run.
-- [ ] CI chạy kiểm tra core, extension build và dataset; UAT/release có evidence theo đúng commit.
-- [ ] Có ít nhất một cải tiến ứng dụng khác biệt được tích hợp và chứng minh bằng metric hoặc đánh giá người dùng.
-- [ ] README và báo cáo phân biệt rõ triển khai, prototype, kết quả và future work.
+- [ ] Luồng người dùng hoàn chỉnh trên VS Code thật: chọn service/method → tìm requirement → sinh → xem trạng thái/kịch bản → chọn → lưu hoặc hủy.
+- [ ] Webview không quyết định đích ghi; host xác minh workspace path và không cho ghi khi chưa có target.
+- [ ] Preview và file lưu dùng cùng mapping scenario AST; chọn sai ID hoặc mapping mơ hồ được báo rõ.
+- [ ] Consent cloud được kiểm chứng cho từng provider; từ chối thì không gửi code/BA; disclosure nói rõ dữ liệu nào được gửi.
+- [ ] Method-level generation xử lý được overload/class trùng tên và không âm thầm chọn method sai.
+- [ ] Mutation report dùng mutant hợp lệ, mẫu số minh bạch và source version khớp; refinement được gọi là gợi ý cho tới khi có vòng sinh–chạy–đo lại.
+- [ ] Có benchmark đầu ra của các prompt strategy và đánh giá đúng BA traceability; kết luận có dữ liệu và giới hạn.
+- [ ] Dataset được rà soát nội dung; mỗi acceptance criterion có traceability tới scenario/assertion hoặc có giải thích.
+- [ ] CI và UAT Host có bằng chứng theo commit phát hành; VSIX đã được cài/chạy thử.
+- [ ] README/báo cáo/checklist phân biệt rõ chức năng đã triển khai với phần đề xuất; số liệu có artifact truy xuất được.
+- [ ] Tuyên bố sáng tạo nêu được điểm mới so với công trình liên quan bằng nguồn và phép so sánh cụ thể.
 
 ## 7. Kết luận
 
-Commit `0528ce8` đã xử lý trực tiếp một số nhận xét trước: lọc scenario dùng TypeScript AST ở host, method metadata được thêm vào context, có modal consent cloud, fallback auto-generate tắt, CI build/package extension và mutation artifact mới có tỷ lệ mutant hợp lệ cao hơn. Checklist cũng bắt đầu phân biệt CI với kiểm thử thủ công trên Host.
+Commit `fb76f7c` đã sửa nhiều vấn đề cụ thể của lần đánh giá trước: bỏ mutation summary dựng giả; khớp summary theo ID service; chuyển mutation preview thành read-only; reset callback/path cũ khi tái sử dụng panel; khóa nút lưu ở trạng thái loading/lỗi; chuyển preview filtering qua AST phía host; thêm lọc một số test parameterized; lưu consent theo provider; đưa source slice của method vào prompt và báo lỗi khi không tìm thấy method; cập nhật checklist để UAT Host ở trạng thái chờ.
 
-Điểm tổng thể cập nhật là **7,5/10**. Chưa nên tự chấm 10/10 vì command mutation refinement đang có nguy cơ hiển thị score không chạy thật và ghi prompt đè lên test file nếu panel được tái sử dụng; preview lọc client khác host; source method chưa thực sự bị giới hạn; chưa có benchmark artifact của test do LLM sinh; report/checklist vẫn có claim/số liệu cần khớp lại.
+Các lỗi nghiêm trọng về số liệu giả và nguy cơ ghi đè test bằng prompt đã được xử lý trong code đang xem. Việc còn lại là hoàn thiện đúng bản chất refinement, tăng độ chắc của mapping và method targeting, khóa đường dẫn ghi file, nâng độ hợp lệ của mutation operators, tạo benchmark đầu ra LLM và thu bằng chứng UAT thật.
 
-Đánh giá chỉ dựa trên mã, tài liệu và artifact của commit `0528ce8`; test/CI/VS Code extension không được chạy lại trong lượt này. Không có thao tác fine-tuning.
+**Điểm tổng thể hiện tại: 7,8/10.** Dự án đã có nền tảng tốt cho cả sáng tạo ứng dụng lẫn tính đầy đủ, nhưng chưa có kết quả benchmark của test sinh ra và chưa chứng minh trọn luồng sử dụng trên VS Code thật. Vì vậy chưa đủ cơ sở để chấm 10/10.
+
+Đây là đánh giá tĩnh tại commit `fb76f7c`; test, CI, benchmark và Extension Host không được chạy lại trong lượt rà soát này. Không có thao tác nào liên quan đến fine-tuning.

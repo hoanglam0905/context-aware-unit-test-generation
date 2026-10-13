@@ -477,8 +477,8 @@ $$\text{Mutation Score (\%)} = \frac{\text{Killed} + \text{Timeout}}{\text{Total
 | **Mutants sống sót (Survived)** | 1 | `MUT_006` (Đổi điều kiện biên `>` thành `>=` tại trần giảm giá) |
 | **Mutation Score (%)** | **92.31%** | $\frac{12 + 0}{13 - 0} \times 100 = 92.31\%$ |
 
-#### Cơ chế Tinh Chỉnh Dẫn Dắt Bởi Đột Biến (Mutation-Guided Refinement):
-Đối với 52 mutants sống sót (Survived Mutants) trên toàn bộ benchmark, hệ thống tích hợp module `MutationGuidedRefiner` (`packages/core/src/mutation/mutation_refiner.ts`). Module này phân tích vị trí mutant (ví dụ: điều kiện biên `>=` vs `>`, kiểm tra giá trị âm/null) và tự động sinh bổ sung các test scenario hướng mục tiêu biên/phủ định (Boundary & Negation Tests) cùng Prompt phản hồi cho LLM, giúp nâng cao độ nhạy phát hiện lỗi của bộ test sinh ra.
+#### Cơ chế Phân Tích & Đề Xuất Dựa Trên Đột Biến (Mutation-Guided Test Analysis & Suggestions):
+Đối với 52 mutants sống sót (Survived Mutants) trên toàn bộ benchmark, hệ thống tích hợp module `MutationGuidedRefiner` (`packages/core/src/mutation/mutation_refiner.ts`) và lệnh `contextAwareTestGen.refineWithMutation` trong extension. Module này phân tích vị trí mutant (ví dụ: điều kiện biên `>=` vs `>`, kiểm tra giá trị âm/null) và tự động tính toán đề xuất kịch bản test hướng mục tiêu biên/phủ định (Boundary & Negation Tests) cùng Prompt phản hồi cho LLM. Trong Extension, kết quả được hiển thị ở chế độ Read-Only cùng mã băm SHA-256 (`sourceHash`) của mã nguồn tương ứng, minh bạch đây là phân tích và đề xuất heuristic trên mutation summary sẵn có, chưa phải vòng lặp tự động tái thực thi.
 
 ### 7.4. Nhận xét và Quy tắc Thực nghiệm Khoa học:
 1. **Loại bỏ dữ liệu mô phỏng:** 100% điểm số Code Coverage và Mutation Score trong báo cáo được đo trực tiếp từ Jest và `MutationRunner` thực thi trong sandbox độc lập (Docker container `experiment-runner`), không sử dụng số liệu ước tính hoặc hardcoded fallback.
