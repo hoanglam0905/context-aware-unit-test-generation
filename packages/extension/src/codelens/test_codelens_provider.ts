@@ -45,7 +45,7 @@ export class ContextAwareCodeLensProvider {
         // 2. CodeLens cho từng Method trong Class
         for (const method of cls.methods) {
           if (method.visibility === 'public') {
-            const methodLineIdx = this.findLineIndex(text, method.name);
+            const methodLineIdx = this.findLineIndex(text, method.name, lineIdx >= 0 ? lineIdx : 0);
             if (methodLineIdx >= 0) {
               const range = new vscode.Range(
                 new vscode.Position(methodLineIdx, 0),
@@ -53,9 +53,9 @@ export class ContextAwareCodeLensProvider {
               );
               codeLenses.push(
                 new vscode.CodeLens(range, {
-                  title: `⚡ [${langInfo.defaultTestFramework}] Sinh test BA cho: ${method.name}()`,
+                  title: `⚡ [${langInfo.defaultTestFramework}] Sinh test BA cho: ${cls.name}.${method.name}()`,
                   command: 'contextAwareTestGen.generateTestForMethod',
-                  arguments: [document.uri, method.name],
+                  arguments: [document.uri, method.name, cls.name],
                 })
               );
             }
@@ -87,9 +87,9 @@ export class ContextAwareCodeLensProvider {
     return codeLenses;
   }
 
-  private findLineIndex(fullText: string, searchSubstring: string): number {
+  private findLineIndex(fullText: string, searchSubstring: string, startFromLine = 0): number {
     const lines = fullText.split(/\r?\n/);
-    for (let i = 0; i < lines.length; i++) {
+    for (let i = Math.max(0, startFromLine); i < lines.length; i++) {
       const line = lines[i];
       if (line.includes(searchSubstring)) {
         return i;

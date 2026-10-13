@@ -54,15 +54,16 @@ export function activate(context: any): void {
   // 5. Đăng ký Command sinh test cho một Method cụ thể (từ CodeLens)
   const generateTestMethodCommand = vscode.commands.registerCommand(
     'contextAwareTestGen.generateTestForMethod',
-    async (uri?: any, methodName?: string) => {
+    async (uri?: any, methodName?: string, className?: string) => {
       const targetUri = uri || vscode.window.activeTextEditor?.document?.uri;
       if (!targetUri) return;
 
       const targetMethod = methodName || 'Method';
+      const classPrefix = className ? `${className}.` : '';
       vscode.window.showInformationMessage(
-        `⚡ [Real-time AI] Đang sinh test theo ngữ cảnh BA cho phương thức: ${targetMethod}()`
+        `⚡ [Real-time AI] Đang sinh test theo ngữ cảnh BA cho phương thức: ${classPrefix}${targetMethod}()`
       );
-      await testGenService.generateForMethod(targetUri, context.extensionUri, targetMethod);
+      await testGenService.generateForMethod(targetUri, context.extensionUri, targetMethod, className);
     }
   );
 

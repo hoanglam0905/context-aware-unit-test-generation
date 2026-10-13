@@ -9,6 +9,8 @@ try {
 }
 
 export class CodeMutatorGenerator {
+  public ts: any = tsModule;
+
   /**
    * Sinh danh sách các Mutants từ mã nguồn gốc đảm bảo tính hợp lệ cú pháp TypeScript
    */
@@ -249,19 +251,22 @@ export class CodeMutatorGenerator {
   }
 
   public isValidSyntax(code: string): boolean {
-    if (!tsModule) return true;
+    const ts = this.ts !== undefined ? this.ts : tsModule;
+    if (!ts) {
+      throw new Error('TypeScript compiler module is required for syntax validation but is not available.');
+    }
     try {
-      const result = tsModule.transpileModule(code, {
+      const result = ts.transpileModule(code, {
         compilerOptions: {
-          module: tsModule.ModuleKind.CommonJS,
-          target: tsModule.ScriptTarget.ES2020,
+          module: ts.ModuleKind.CommonJS,
+          target: ts.ScriptTarget.ES2020,
           noEmitOnError: false,
         },
         reportDiagnostics: true,
       });
 
       if (result.diagnostics && result.diagnostics.length > 0) {
-        return !result.diagnostics.some((d: any) => d.category === tsModule.DiagnosticCategory.Error);
+        return !result.diagnostics.some((d: any) => d.category === ts.DiagnosticCategory.Error);
       }
       return true;
     } catch {

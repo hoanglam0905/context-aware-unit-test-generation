@@ -137,20 +137,27 @@ export function filterTestCodeByScenarios(
   testBlocks.forEach((tb, index) => {
     let matchedScenario: ScenarioItem | undefined;
 
-    // A. Khớp chính xác theo ID (ví dụ: TC-001, TC_01)
-    for (const sc of allScenarios) {
-      if (tb.title.includes(sc.id)) {
+    // A. Khớp chính xác theo ID (với ranh giới token boundary để tránh khớp nhầm tiền tố như TC-001 vs TC-0010)
+    const sortedByIdLength = [...allScenarios].sort((a, b) => b.id.length - a.id.length);
+    for (const sc of sortedByIdLength) {
+      const escaped = sc.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const tokenRegex = new RegExp(`(^|[^A-Za-z0-9_-])${escaped}([^A-Za-z0-9_-]|$)`);
+      if (tokenRegex.test(tb.title)) {
         matchedScenario = sc;
         break;
       }
     }
 
-    // B. Nếu chưa khớp ID, khớp theo description
+    // B. Nếu chưa khớp ID, khớp theo description (độ dài tối thiểu 5 ký tự)
     if (!matchedScenario) {
       for (const sc of allScenarios) {
-        if (sc.description && tb.title.toLowerCase().includes(sc.description.toLowerCase().slice(0, 25))) {
-          matchedScenario = sc;
-          break;
+        if (sc.description && sc.description.trim().length >= 5) {
+          const cleanDesc = sc.description.trim().toLowerCase();
+          const cleanTitle = tb.title.toLowerCase();
+          if (cleanTitle.includes(cleanDesc.slice(0, 30))) {
+            matchedScenario = sc;
+            break;
+          }
         }
       }
     }

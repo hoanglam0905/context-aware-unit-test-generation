@@ -173,6 +173,29 @@ describe('Calculator', () => {
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Không thể ánh xạ test block'));
       warnSpy.mockRestore();
     });
+
+    it('sử dụng regex token boundary để tránh khớp nhầm scenario ID tiền tố (ví dụ TC-001 với TC-0010)', () => {
+      const prefixConflictCode = `import { Service } from './service';
+describe('Service', () => {
+  it('TC-001: should handle single item', () => {
+    expect(true).toBe(true);
+  });
+  it('TC-0010: should handle ten items', () => {
+    expect(true).toBe(true);
+  });
+});`;
+      const scenarios: ScenarioItem[] = [
+        { id: 'TC-001', description: 'should handle single item' },
+        { id: 'TC-0010', description: 'should handle ten items' },
+      ];
+      const filteredOnlyFirst = filterTestCodeByScenarios(prefixConflictCode, ['TC-001'], scenarios);
+      expect(filteredOnlyFirst).toContain('TC-001:');
+      expect(filteredOnlyFirst).not.toContain('TC-0010:');
+
+      const filteredOnlySecond = filterTestCodeByScenarios(prefixConflictCode, ['TC-0010'], scenarios);
+      expect(filteredOnlySecond).toContain('TC-0010:');
+      expect(filteredOnlySecond).not.toContain('TC-001:');
+    });
   });
 
   describe('3. Mutation-Guided Refinement Engine Verification (Section 5)', () => {
@@ -301,6 +324,68 @@ describe('Calculator', () => {
 
       expect(onAcceptSpy).not.toHaveBeenCalled();
     });
+
+    it('message handler từ chối lưu file khi hostState là loading hoặc error', () => {
+      let messageHandler: ((msg: any) => void) | undefined;
+      const mockWebview = {
+        html: '',
+        onDidReceiveMessage: (fn: any) => { messageHandler = fn; },
+        postMessage: jest.fn(),
+      };
+      const panel = new (TestPreviewPanel as any)({ webview: mockWebview, onDidDispose: jest.fn() }, {});
+      const onAcceptSpy = jest.fn();
+      panel.setTargetOutput(require('path').join(process.cwd(), 'service.test.ts'), onAcceptSpy);
+
+      // 1. hostState là loading khi testCode bắt đầu bằng // ⏳
+      panel.sendData({
+        testCode: '// ⏳ Đang phân tích và sinh mã test...',
+      });
+      expect(panel.hostState).toBe('loading');
+
+      messageHandler!({
+        type: 'ACCEPT_TEST',
+        payload: { testCode: '// ⏳ Đang phân tích và sinh mã test...' },
+      });
+      expect(onAcceptSpy).not.toHaveBeenCalled();
+
+      // 2. hostState là error khi syntaxValid = false hoặc bắt đầu bằng // ❌
+      panel.sendData({
+        testCode: '// ❌ Lỗi cú pháp',
+        syntaxValid: false,
+      });
+      expect(panel.hostState).toBe('error');
+
+      messageHandler!({
+        type: 'ACCEPT_TEST',
+        payload: { testCode: 'describe("test", () => {});' },
+      });
+      expect(onAcceptSpy).not.toHaveBeenCalled();
+    });
+
+    it('message handler từ chối lưu file nếu đường dẫn nằm ngoài workspace folders', () => {
+      let messageHandler: ((msg: any) => void) | undefined;
+      const mockWebview = {
+        html: '',
+        onDidReceiveMessage: (fn: any) => { messageHandler = fn; },
+        postMessage: jest.fn(),
+      };
+      const panel = new (TestPreviewPanel as any)({ webview: mockWebview, onDidDispose: jest.fn() }, {});
+      const onAcceptSpy = jest.fn();
+
+      // Đường dẫn ngoài workspace
+      panel.setTargetOutput('/var/outside/arbitrary/path/service.test.ts', onAcceptSpy);
+      panel.sendData({
+        testCode: 'describe("test", () => {});',
+        syntaxValid: true,
+      });
+      expect(panel.hostState).toBe('ready');
+
+      messageHandler!({
+        type: 'ACCEPT_TEST',
+        payload: { testCode: 'describe("test", () => {});' },
+      });
+      expect(onAcceptSpy).not.toHaveBeenCalled();
+    });
   });
 
   describe('5. Method-Level Scoping Verification (Issue 4.2 & Section 5.3)', () => {
@@ -382,7 +467,39 @@ export class OrderService {
       });
       expect(ctx.promptContext.targetMethodSlice?.className).toBe('OrderService');
       expect(ctx.promptContext.targetMethodSlice?.methodName).toBe('findById');
-      expect(ctx.promptContext.astSummary).toContain('=== SURROUNDING CONTEXT & DEPENDENCIES');
+      expect(ctx.promptContext.astSummary).toContain('=== COMPLEMENTARY FILE CONTEXT & SYMBOLS');
+    });
+
+    it('ContextAwareCodeLensProvider sinh CodeLens với đầy đủ class name và method name cho file có nhiều class', () => {
+      const { ContextAwareCodeLensProvider } = require('./codelens/test_codelens_provider');
+      const provider = new ContextAwareCodeLensProvider();
+      const multiClassDocument = {
+        getText: () => `
+          export class OrderService {
+            public process(): void {}
+          }
+          export class PaymentService {
+            public process(): void {}
+          }
+        `,
+        fileName: 'services.ts',
+        uri: { fsPath: '/test/services.ts' },
+      };
+
+      const lenses = provider.provideCodeLenses(multiClassDocument, {});
+      expect(lenses.length).toBeGreaterThanOrEqual(4);
+
+      const methodLenses = lenses.filter((l: any) => l.command?.command === 'contextAwareTestGen.generateTestForMethod');
+      expect(methodLenses.length).toBe(2);
+
+      const orderLens = methodLenses.find((l: any) => l.command.title.includes('OrderService.process()'));
+      const paymentLens = methodLenses.find((l: any) => l.command.title.includes('PaymentService.process()'));
+
+      expect(orderLens).toBeDefined();
+      expect(orderLens.command.arguments).toEqual([multiClassDocument.uri, 'process', 'OrderService']);
+
+      expect(paymentLens).toBeDefined();
+      expect(paymentLens.command.arguments).toEqual([multiClassDocument.uri, 'process', 'PaymentService']);
     });
   });
 
@@ -415,6 +532,20 @@ export class OrderService {
       const res = await service.refineWithMutation(nonExistentUri, extensionUri);
       expect(res).toBeUndefined();
     });
+
+    it('refineWithMutation nhúng SHA-256 64 ký tự và kiểm tra tính toàn vẹn của mã dịch vụ', async () => {
+      const { TestGenerationService } = require('./services/test_generation_service');
+      const service = new TestGenerationService();
+      const path = require('path');
+      const sampleServiceUri = {
+        fsPath: path.resolve(__dirname, '../../../experiments/dataset/simple/s01_discount_calculator/service.ts'),
+      };
+      const extensionUri = { fsPath: path.resolve(__dirname, '..') };
+
+      const refinement = await service.refineWithMutation(sampleServiceUri, extensionUri);
+      expect(refinement).toBeDefined();
+      expect(refinement.feedbackPrompt).toMatch(/SHA-256:\s+[a-f0-9]{64}/i);
+    });
   });
 
   describe('7. Mutator Syntax-Validity Filter Verification (Issue 4.4)', () => {
@@ -424,6 +555,20 @@ export class OrderService {
       expect(generator.isValidSyntax('const x: number = 42;')).toBe(true);
       expect(generator.isValidSyntax('const x = ;')).toBe(false);
       expect(generator.isValidSyntax('function test( {')).toBe(false);
+    });
+
+    it('isValidSyntax ném lỗi (fail-closed) khi TypeScript compiler module không khả dụng', () => {
+      const { CodeMutatorGenerator } = require('../../core/src/mutation/mutators');
+      const generator = new CodeMutatorGenerator();
+      const originalTs = (generator as any).ts;
+      try {
+        (generator as any).ts = null;
+        expect(() => {
+          generator.isValidSyntax('const x = 1;');
+        }).toThrow('TypeScript compiler module is required for syntax validation but is not available.');
+      } finally {
+        (generator as any).ts = originalTs;
+      }
     });
 
     it('CodeMutatorGenerator chỉ sinh mutants hợp lệ cú pháp và không gây lỗi biên dịch', () => {
@@ -443,6 +588,31 @@ export class OrderService {
       expect(mutants.length).toBeGreaterThan(0);
       for (const m of mutants) {
         expect(generator.isValidSyntax(m.mutatedFileContent)).toBe(true);
+      }
+    });
+  });
+
+  describe('8. Self-Contained VSIX Packaging Verification (P0 Packaging)', () => {
+    it('kiểm tra script đóng gói VSIX hỗ trợ inject node_modules/typescript và node_modules/dotenv', () => {
+      const path = require('path');
+      const fs = require('fs');
+      const packageScriptPath = path.resolve(__dirname, '../scripts/package_extension.js');
+      expect(fs.existsSync(packageScriptPath)).toBe(true);
+
+      const scriptContent = fs.readFileSync(packageScriptPath, 'utf-8');
+      expect(scriptContent).toContain('yauzl');
+      expect(scriptContent).toContain('yazl');
+      expect(scriptContent).toContain('typescript');
+      expect(scriptContent).toContain('dotenv');
+    });
+
+    it('VSIX package nếu đã build có kích thước > 1MB và chứa đầy đủ runtime libraries', () => {
+      const path = require('path');
+      const fs = require('fs');
+      const vsixPath = path.resolve(__dirname, '../context-aware-test-gen-0.1.0.vsix');
+      if (fs.existsSync(vsixPath)) {
+        const stat = fs.statSync(vsixPath);
+        expect(stat.size).toBeGreaterThan(1024 * 1024);
       }
     });
   });

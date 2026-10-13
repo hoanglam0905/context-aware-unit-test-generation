@@ -28,11 +28,13 @@ export class TestGenerationService {
   public async generateForMethod(
     serviceUri: any,
     extensionUri: any,
-    methodName: string
+    methodName: string,
+    className?: string
   ): Promise<PipelineResult | undefined> {
     return this.generateForFile(serviceUri, extensionUri, {
       targetSymbol: methodName,
       targetType: 'method',
+      targetClassName: className,
     });
   }
 
@@ -42,7 +44,7 @@ export class TestGenerationService {
   public async generateForFile(
     serviceUri: any,
     extensionUri: any,
-    options?: { targetSymbol?: string; targetType?: 'file' | 'method' | 'class' }
+    options?: { targetSymbol?: string; targetType?: 'file' | 'method' | 'class'; targetClassName?: string }
   ): Promise<PipelineResult | undefined> {
     const startTime = Date.now();
     const serviceFilePath = serviceUri.fsPath;
@@ -119,6 +121,7 @@ export class TestGenerationService {
             outputTestFilePath: defaultOutputPath,
             runCoverage: config.autoRunCoverage,
             targetMethodName: options?.targetSymbol,
+            targetClassName: options?.targetClassName,
             dryRun: true, // Không chạm file đích trên đĩa trước khi người dùng xác nhận
           });
         }
@@ -316,10 +319,22 @@ export class TestGenerationService {
       return undefined;
     }
 
-    const sourceHash = crypto.createHash('sha256').update(serviceCode).digest('hex').slice(0, 12);
+    const fullSourceHash = crypto.createHash('sha256').update(serviceCode).digest('hex');
+    const sourceHash = fullSourceHash.slice(0, 12);
+
+    // Kiểm tra độ tươi mới (Freshness check) giữa mã nguồn hiện tại và summary
+    const survivedMutants = (summary.results || []).filter((r: any) => r.status === 'SURVIVED');
+    const hasDivergence = survivedMutants.some((r: any) => r.mutant?.originalCode && !serviceCode.includes(r.mutant.originalCode));
+    if (hasDivergence) {
+      vscode.window.showWarningMessage(
+        `⚠️ Cảnh báo: Mã nguồn ${serviceFileName} đã thay đổi so với bản chạy mutation testing trước đó! Gợi ý kịch bản có thể không còn khớp hoàn toàn.`
+      );
+    }
 
     const refiner = new MutationGuidedRefiner();
     const refinement = refiner.analyzeAndSuggestRefinement(summary, serviceCode);
+    (refinement as any).sourceHash = fullSourceHash;
+    refinement.feedbackPrompt = `### Source Code SHA-256: ${fullSourceHash}\n` + refinement.feedbackPrompt;
 
     // 2. Hiển thị kết quả lên Preview Panel ở chế độ CHỈ XEM (READ-ONLY)
     // Ngăn chặn hoàn toàn việc ghi đè prompt phản hồi lên file test thật
@@ -336,7 +351,7 @@ export class TestGenerationService {
         selected: true,
       })),
       testCode: `// 🧬 MUTATION-GUIDED TEST SUGGESTIONS CHO: ${serviceFileName}\n` +
-        `// 🔑 Source Hash (SHA-256): ${sourceHash}\n` +
+        `// 🔑 Source Hash (SHA-256): ${sourceHash} (${fullSourceHash})\n` +
         `// 🎯 Mutation Score ban đầu: ${refinement.initialMutationScore.toFixed(1)}%\n` +
         `// ⚠️ Số Mutants còn sống sót (Survived): ${refinement.survivedMutantsCount}\n` +
         `// ℹ️ Chế độ xem phản hồi (Read-Only) - Phân tích & Gợi ý kịch bản, chưa qua vòng sinh lại tự động\n\n` +

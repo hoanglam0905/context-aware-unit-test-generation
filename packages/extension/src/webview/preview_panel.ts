@@ -21,6 +21,7 @@ export class TestPreviewPanel {
   private _lastScenarios?: ScenarioItem[];
   private _onAcceptCallback?: (testCode: string, outputPath: string) => void;
   private _isReadOnly: boolean = false;
+  private _hostState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
 
   public static createOrShow(extensionUri: any, initialData?: any): TestPreviewPanel {
     const column = vscode.window.activeTextEditor
@@ -33,6 +34,7 @@ export class TestPreviewPanel {
       TestPreviewPanel.currentPanel._targetOutputPath = undefined;
       TestPreviewPanel.currentPanel._onAcceptCallback = undefined;
       TestPreviewPanel.currentPanel._isReadOnly = false;
+      TestPreviewPanel.currentPanel._hostState = 'idle';
       if (initialData) {
         TestPreviewPanel.currentPanel.sendData(initialData);
       }
@@ -93,6 +95,16 @@ export class TestPreviewPanel {
               return;
             }
 
+            if (this._hostState === 'loading') {
+              vscode.window.showWarningMessage('Không thể lưu khi mã test đang trong trạng thái loading!');
+              return;
+            }
+
+            if (this._hostState === 'error') {
+              vscode.window.showErrorMessage('Không thể lưu mã test khi đang ở trạng thái lỗi cú pháp hoặc lỗi hệ thống!');
+              return;
+            }
+
             // Bảo vệ an ninh tuyệt đối: CHỈ cho phép lưu vào target path đã được Host ghim trước đó
             // Tuyệt đối không chấp nhận đường dẫn tùy ý gửi lên từ Webview payload
             if (!this._targetOutputPath) {
@@ -103,10 +115,25 @@ export class TestPreviewPanel {
             const outputPath = this._targetOutputPath;
 
             // Kiểm tra bảo mật đường dẫn output path (ngăn chặn path traversal)
-            const normalizedPath = path.normalize(outputPath);
-            if (normalizedPath.includes('..') || !path.isAbsolute(normalizedPath)) {
+            const resolvedPath = path.resolve(outputPath);
+            const normalizedPath = path.normalize(resolvedPath);
+            if (normalizedPath.split(path.sep).includes('..') || !path.isAbsolute(normalizedPath)) {
               vscode.window.showErrorMessage('Phát hiện đường dẫn không an toàn (Path Traversal)! Thao tác bị từ chối.');
               return;
+            }
+
+            // Kiểm tra containment theo workspace policy
+            const workspaceFolders = vscode.workspace?.workspaceFolders || [];
+            if (workspaceFolders.length > 0) {
+              const isContained = workspaceFolders.some((wf: any) => {
+                const root = path.resolve(wf.uri.fsPath);
+                const rel = path.relative(root, normalizedPath);
+                return !rel.startsWith('..') && !path.isAbsolute(rel);
+              });
+              if (!isContained) {
+                vscode.window.showErrorMessage('Đường dẫn lưu file nằm ngoài workspace được phép! Thao tác bị từ chối.');
+                return;
+              }
             }
 
             // Ưu tiên mã test từ cache của Host để đảm bảo tính toàn vẹn
@@ -121,7 +148,7 @@ export class TestPreviewPanel {
               );
             }
 
-            if (!testCode || testCode.trim().length === 0) {
+            if (!testCode || testCode.trim().length === 0 || testCode.startsWith('// ⏳') || testCode.startsWith('// ❌')) {
               vscode.window.showWarningMessage('Không có mã test hợp lệ để lưu!');
               return;
             }
@@ -175,6 +202,14 @@ export class TestPreviewPanel {
     }
   }
 
+  public get hostState(): 'idle' | 'loading' | 'ready' | 'error' {
+    return this._hostState;
+  }
+
+  public get targetOutputPath(): string | undefined {
+    return this._targetOutputPath;
+  }
+
   public sendData(data: HostToWebviewMessage['payload']): void {
     if (data && typeof data === 'object') {
       if ('isReadOnly' in data) {
@@ -189,6 +224,17 @@ export class TestPreviewPanel {
       }
       if ('scenarios' in data && Array.isArray((data as any).scenarios)) {
         this._lastScenarios = (data as any).scenarios;
+      }
+
+      // Track host lifecycle state
+      const code = (data as any).testCode || '';
+      const syntaxValid = (data as any).syntaxValid;
+      if (syntaxValid === false || code.startsWith('// ❌')) {
+        this._hostState = 'error';
+      } else if (code.startsWith('// ⏳')) {
+        this._hostState = 'loading';
+      } else if (code) {
+        this._hostState = 'ready';
       }
     }
     this._panel.webview.postMessage({

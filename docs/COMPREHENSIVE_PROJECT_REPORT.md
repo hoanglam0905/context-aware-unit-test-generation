@@ -486,6 +486,8 @@ $$\text{Mutation Score (\%)} = \frac{\text{Killed} + \text{Timeout}}{\text{Total
 3. **Cô lập biến nghiên cứu cho Fine-Tuning:** Khi tiến hành fine-tuning mô hình (LoRA/QLoRA), cả hai nhánh Base Model và Fine-Tuned Model được cấp chung cấu hình prompt, cùng ngữ cảnh BA + AST, cùng temperature và token budget trên tập **Test Holdout** độc lập (S05, S10, S15) để đảm bảo kết luận khoa học chính xác.
 4. **Cơ chế Auto-Fix:** Được kích hoạt tự động khi mã sinh ra lỗi cú pháp hoặc fail assertion; kết quả sửa lỗi được kiểm tra trong sandbox trước khi cập nhật.
 5. **Giới hạn phạm vi (Pilot Scope):** Kết quả thực nghiệm hiện tại áp dụng cho bộ pilot 15 service trên TypeScript/Jest. Việc mở rộng sang các ngôn ngữ khác sẽ cần triển khai thêm test runner và bộ dataset tương ứng cho từng ngôn ngữ.
+6. **Bảo mật Webview Host & Kiểm soát Đường dẫn Ghi file:** Khóa chặt `_targetOutputPath` từ phía Host, kiểm tra tính toàn vẹn và ngăn chặn path traversal `..`, áp dụng chính sách workspace containment (chỉ cho phép ghi trong thư mục workspace hợp lệ), và duy trì bất biến trạng thái host (`_hostState !== 'loading' && _hostState !== 'error'`) trước khi ghi mã test.
+7. **Đóng gói VSIX Tự chứa Runtime Dependencies (Self-Contained Extension):** Cơ chế đóng gói tùy biến sử dụng script `packages/extension/scripts/package_extension.js` giải quyết triệt để vấn đề monorepo hoisting của npm, nhúng trực tiếp `node_modules/typescript` và `node_modules/dotenv` vào archive `.vsix` để đảm bảo extension hoạt động độc lập và phân giải module 100% trên môi trường cài đặt sạch.
 
 ---
 

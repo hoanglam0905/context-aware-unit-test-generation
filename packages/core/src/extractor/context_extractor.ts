@@ -59,10 +59,13 @@ export class ContextExtractor {
         if (!targetCls) {
           throw new Error(`Target class "${options.targetClassName}" was not found in service code.`);
         }
-        const found = targetCls.methods.find((m) => m.name === options.targetMethodName);
-        if (!found) {
+        const matchingMethods = targetCls.methods.filter((m) => m.name === options.targetMethodName);
+        if (matchingMethods.length === 0) {
           throw new Error(`Target method "${options.targetMethodName}" was not found in class "${options.targetClassName}".`);
         }
+        // Xử lý overload: ưu tiên method có implementation body/sourceSlice
+        const withImpl = matchingMethods.filter((m) => m.sourceSlice || m.bodySnippet);
+        const found = withImpl.length > 0 ? withImpl[0] : matchingMethods[0];
         const paramsStr = found.parameters.map((p) => `${p.name}: ${p.type}`).join(', ');
         targetMethodSlice = {
           className: targetCls.name,
@@ -85,7 +88,9 @@ export class ContextExtractor {
 
         if (matchingClasses.length === 1) {
           const cls = matchingClasses[0];
-          const found = cls.methods.find((m) => m.name === options.targetMethodName)!;
+          const matchingMethods = cls.methods.filter((m) => m.name === options.targetMethodName);
+          const withImpl = matchingMethods.filter((m) => m.sourceSlice || m.bodySnippet);
+          const found = withImpl.length > 0 ? withImpl[0] : matchingMethods[0];
           const paramsStr = found.parameters.map((p) => `${p.name}: ${p.type}`).join(', ');
           targetMethodSlice = {
             className: cls.name,
@@ -176,7 +181,11 @@ export class ContextExtractor {
       lines.push('=====================================================\n');
     }
     if (codeContext.classes && codeContext.classes.length > 0) {
-      lines.push(targetMethodSlice ? '=== SURROUNDING CONTEXT & DEPENDENCIES (NOT DIRECTLY UNDER TEST) ===\nClasses:' : 'Classes:');
+      lines.push(
+        targetMethodSlice
+          ? '=== COMPLEMENTARY FILE CONTEXT & SYMBOLS (REFERENCE ONLY - NOT DIRECTLY UNDER TEST) ===\nClasses:'
+          : 'Classes:'
+      );
       for (const cls of codeContext.classes) {
         lines.push(`- Class ${cls.name}:`);
         if (cls.properties && cls.properties.length > 0) {
