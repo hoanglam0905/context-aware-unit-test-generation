@@ -51,11 +51,13 @@ export class ContextAwareCodeLensProvider {
                 new vscode.Position(methodLineIdx, 0),
                 new vscode.Position(methodLineIdx, 0)
               );
+              const paramsStr = method.parameters?.map((p: any) => `${p.name}: ${p.type}`).join(', ') ?? '';
+              const signature = `${method.visibility ?? 'public'} ${method.name}(${paramsStr}): ${method.returnType}`;
               codeLenses.push(
                 new vscode.CodeLens(range, {
                   title: `⚡ [${langInfo.defaultTestFramework}] Sinh test BA cho: ${cls.name}.${method.name}()`,
                   command: 'contextAwareTestGen.generateTestForMethod',
-                  arguments: [document.uri, method.name, cls.name],
+                  arguments: [document.uri, method.name, cls.name, signature, methodLineIdx],
                 })
               );
             }
@@ -71,11 +73,13 @@ export class ContextAwareCodeLensProvider {
             new vscode.Position(funcLineIdx, 0),
             new vscode.Position(funcLineIdx, 0)
           );
+          const paramsStr = func.parameters?.map((p: any) => `${p.name}: ${p.type}`).join(', ') ?? '';
+          const signature = `function ${func.name}(${paramsStr}): ${func.returnType}`;
           codeLenses.push(
             new vscode.CodeLens(range, {
               title: `⚡ [${langInfo.defaultTestFramework}] Sinh test BA cho hàm: ${func.name}()`,
               command: 'contextAwareTestGen.generateTestForMethod',
-              arguments: [document.uri, func.name],
+              arguments: [document.uri, func.name, undefined, signature, funcLineIdx],
             })
           );
         }

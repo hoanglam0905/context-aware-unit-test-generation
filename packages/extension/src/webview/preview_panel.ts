@@ -95,13 +95,14 @@ export class TestPreviewPanel {
               return;
             }
 
-            if (this._hostState === 'loading') {
-              vscode.window.showWarningMessage('Không thể lưu khi mã test đang trong trạng thái loading!');
-              return;
-            }
-
-            if (this._hostState === 'error') {
-              vscode.window.showErrorMessage('Không thể lưu mã test khi đang ở trạng thái lỗi cú pháp hoặc lỗi hệ thống!');
+            if (this._hostState !== 'ready') {
+              if (this._hostState === 'loading') {
+                vscode.window.showWarningMessage('Không thể lưu khi mã test đang trong trạng thái loading!');
+              } else if (this._hostState === 'error') {
+                vscode.window.showErrorMessage('Không thể lưu mã test khi đang ở trạng thái lỗi cú pháp hoặc lỗi hệ thống!');
+              } else {
+                vscode.window.showWarningMessage('Thao tác bị từ chối: Preview panel chưa ở trạng thái sẵn sàng (ready)!');
+              }
               return;
             }
 
@@ -124,23 +125,51 @@ export class TestPreviewPanel {
 
             // Kiểm tra containment theo workspace policy
             const workspaceFolders = vscode.workspace?.workspaceFolders || [];
-            if (workspaceFolders.length > 0) {
-              const isContained = workspaceFolders.some((wf: any) => {
-                const root = path.resolve(wf.uri.fsPath);
-                const rel = path.relative(root, normalizedPath);
-                return !rel.startsWith('..') && !path.isAbsolute(rel);
-              });
-              if (!isContained) {
-                vscode.window.showErrorMessage('Đường dẫn lưu file nằm ngoài workspace được phép! Thao tác bị từ chối.');
-                return;
-              }
+            if (workspaceFolders.length === 0) {
+              vscode.window.showErrorMessage('Thao tác bị từ chối: Không có workspace nào đang mở!');
+              return;
             }
 
-            // Ưu tiên mã test từ cache của Host để đảm bảo tính toàn vẹn
-            let testCode = this._lastTestCode || msg.payload?.testCode || '';
+            // Resolve real physical path để ngăn chặn symlink escape ra ngoài workspace
+            let canonicalTarget = normalizedPath;
+            try {
+              if (fs.existsSync(normalizedPath)) {
+                canonicalTarget = fs.realpathSync(normalizedPath);
+              } else {
+                const parentDir = path.dirname(normalizedPath);
+                if (fs.existsSync(parentDir)) {
+                  canonicalTarget = path.join(fs.realpathSync(parentDir), path.basename(normalizedPath));
+                }
+              }
+            } catch {
+              // Fallback dùng normalizedPath nếu môi trường không hỗ trợ realpath
+            }
+
+            const isContained = workspaceFolders.some((wf: any) => {
+              const root = path.resolve(wf.uri.fsPath);
+              let canonicalRoot = root;
+              try {
+                if (fs.existsSync(root)) canonicalRoot = fs.realpathSync(root);
+              } catch {}
+              const rel = path.relative(canonicalRoot, canonicalTarget);
+              return !rel.startsWith('..') && !path.isAbsolute(rel);
+            });
+
+            if (!isContained) {
+              vscode.window.showErrorMessage('Đường dẫn lưu file nằm ngoài workspace được phép! Thao tác bị từ chối.');
+              return;
+            }
+
+            // Tuyệt đối yêu cầu mã test từ cache của Host - KHÔNG fallback nhận mã tự do từ Webview payload
+            if (!this._lastTestCode || this._lastTestCode.trim().length === 0 || this._lastTestCode.startsWith('// ⏳') || this._lastTestCode.startsWith('// ❌')) {
+              vscode.window.showWarningMessage('Không có mã test hợp lệ trong bộ nhớ đệm của Host để lưu!');
+              return;
+            }
+
+            let testCode = this._lastTestCode;
 
             // Nếu webview gửi danh sách scenario được chọn, lọc mã test phía host để đảm bảo tính toàn vẹn
-            if (msg.payload?.selectedScenarioIds && this._lastScenarios && this._lastTestCode) {
+            if (msg.payload?.selectedScenarioIds && this._lastScenarios) {
               testCode = filterTestCodeByScenarios(
                 this._lastTestCode,
                 msg.payload.selectedScenarioIds,

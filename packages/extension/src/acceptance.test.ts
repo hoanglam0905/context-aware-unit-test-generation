@@ -196,6 +196,37 @@ describe('Service', () => {
       expect(filteredOnlySecond).toContain('TC-0010:');
       expect(filteredOnlySecond).not.toContain('TC-001:');
     });
+
+    it('analyzeScenarioMapping phân tích chính xác số test block được ánh xạ và chưa ánh xạ', () => {
+      const { analyzeScenarioMapping } = require('./webview/test_code_filter');
+      const code = `
+        describe('Service', () => {
+          it('TC-001: test one', () => {});
+          it('helper utility check', () => {});
+        });
+      `;
+      const analysis = analyzeScenarioMapping(code, [{ id: 'TC-001', description: 'test one' }]);
+      expect(analysis.totalTestBlocks).toBe(2);
+      expect(analysis.mappedBlocksCount).toBe(1);
+      expect(analysis.unmappedBlocks).toContain('helper utility check');
+    });
+
+    it('filterTestCodeByScenarios với strict mode loại bỏ các block không thể ánh xạ', () => {
+      const code = `
+        describe('Service', () => {
+          it('TC-001: test one', () => {});
+          it('helper utility check', () => {});
+        });
+      `;
+      const filtered = filterTestCodeByScenarios(
+        code,
+        ['TC-001'],
+        [{ id: 'TC-001', description: 'test one' }, { id: 'TC-002', description: 'test two' }],
+        { strict: true }
+      );
+      expect(filtered).toContain('TC-001: test one');
+      expect(filtered).not.toContain('helper utility check');
+    });
   });
 
   describe('3. Mutation-Guided Refinement Engine Verification (Section 5)', () => {
@@ -362,6 +393,56 @@ describe('Service', () => {
       expect(onAcceptSpy).not.toHaveBeenCalled();
     });
 
+    it('message handler từ chối lưu file khi hostState là idle (chưa nhận dữ liệu sinh mã)', () => {
+      let messageHandler: ((msg: any) => void) | undefined;
+      const mockWebview = {
+        html: '',
+        onDidReceiveMessage: (fn: any) => { messageHandler = fn; },
+        postMessage: jest.fn(),
+      };
+      const panel = new (TestPreviewPanel as any)({ webview: mockWebview, onDidDispose: jest.fn() }, {});
+      const onAcceptSpy = jest.fn();
+      panel.setTargetOutput(require('path').join(process.cwd(), 'service.test.ts'), onAcceptSpy);
+
+      expect(panel.hostState).toBe('idle');
+      messageHandler!({
+        type: 'ACCEPT_TEST',
+        payload: { testCode: 'describe("test", () => {});' },
+      });
+      expect(onAcceptSpy).not.toHaveBeenCalled();
+    });
+
+    it('message handler từ chối lưu file khi không có workspace nào đang mở (workspace rỗng)', () => {
+      let messageHandler: ((msg: any) => void) | undefined;
+      const mockWebview = {
+        html: '',
+        onDidReceiveMessage: (fn: any) => { messageHandler = fn; },
+        postMessage: jest.fn(),
+      };
+      const panel = new (TestPreviewPanel as any)({ webview: mockWebview, onDidDispose: jest.fn() }, {});
+      const onAcceptSpy = jest.fn();
+      panel.setTargetOutput(require('path').join(process.cwd(), 'service.test.ts'), onAcceptSpy);
+
+      panel.sendData({
+        testCode: 'describe("test", () => {});',
+        syntaxValid: true,
+      });
+      expect(panel.hostState).toBe('ready');
+
+      const { vscode } = require('./vscode_shim');
+      const originalWf = vscode.workspace.workspaceFolders;
+      try {
+        vscode.workspace.workspaceFolders = [];
+        messageHandler!({
+          type: 'ACCEPT_TEST',
+          payload: { testCode: 'describe("test", () => {});' },
+        });
+        expect(onAcceptSpy).not.toHaveBeenCalled();
+      } finally {
+        vscode.workspace.workspaceFolders = originalWf;
+      }
+    });
+
     it('message handler từ chối lưu file nếu đường dẫn nằm ngoài workspace folders', () => {
       let messageHandler: ((msg: any) => void) | undefined;
       const mockWebview = {
@@ -496,10 +577,48 @@ export class OrderService {
       const paymentLens = methodLenses.find((l: any) => l.command.title.includes('PaymentService.process()'));
 
       expect(orderLens).toBeDefined();
-      expect(orderLens.command.arguments).toEqual([multiClassDocument.uri, 'process', 'OrderService']);
+      expect(orderLens.command.arguments[0]).toEqual(multiClassDocument.uri);
+      expect(orderLens.command.arguments[1]).toBe('process');
+      expect(orderLens.command.arguments[2]).toBe('OrderService');
+      expect(orderLens.command.arguments[3]).toContain('process');
+      expect(typeof orderLens.command.arguments[4]).toBe('number');
 
       expect(paymentLens).toBeDefined();
-      expect(paymentLens.command.arguments).toEqual([multiClassDocument.uri, 'process', 'PaymentService']);
+      expect(paymentLens.command.arguments[0]).toEqual(multiClassDocument.uri);
+      expect(paymentLens.command.arguments[1]).toBe('process');
+      expect(paymentLens.command.arguments[2]).toBe('PaymentService');
+      expect(paymentLens.command.arguments[3]).toContain('process');
+      expect(typeof paymentLens.command.arguments[4]).toBe('number');
+    });
+
+    it('ContextExtractor hỗ trợ phân biệt method overload bằng targetMethodSignature', () => {
+      const { ContextExtractor } = require('../../core/src/extractor/context_extractor');
+      const extractor = new ContextExtractor();
+      const overloadCode = `
+        export class PaymentService {
+          public processPayment(amount: number): boolean {
+            return amount > 0;
+          }
+          public processPayment(amount: number, currency: string): boolean {
+            return amount > 0 && currency.length === 3;
+          }
+        }
+      `;
+      const ctx1 = extractor.extract({
+        serviceCode: overloadCode,
+        targetClassName: 'PaymentService',
+        targetMethodName: 'processPayment',
+        targetMethodSignature: 'public processPayment(amount: number): boolean',
+      });
+      expect(ctx1.promptContext.targetMethodSlice?.parameters.length).toBe(1);
+
+      const ctx2 = extractor.extract({
+        serviceCode: overloadCode,
+        targetClassName: 'PaymentService',
+        targetMethodName: 'processPayment',
+        targetMethodSignature: 'public processPayment(amount: number, currency: string): boolean',
+      });
+      expect(ctx2.promptContext.targetMethodSlice?.parameters.length).toBe(2);
     });
   });
 
@@ -606,14 +725,42 @@ export class OrderService {
       expect(scriptContent).toContain('dotenv');
     });
 
-    it('VSIX package nếu đã build có kích thước > 1MB và chứa đầy đủ runtime libraries', () => {
+    it('VSIX package chứa đầy đủ runtime dependencies (typescript, dotenv) và dung lượng > 3MB', async () => {
       const path = require('path');
       const fs = require('fs');
-      const vsixPath = path.resolve(__dirname, '../context-aware-test-gen-0.1.0.vsix');
-      if (fs.existsSync(vsixPath)) {
-        const stat = fs.statSync(vsixPath);
-        expect(stat.size).toBeGreaterThan(1024 * 1024);
-      }
+      const yauzl = require('yauzl');
+      const vsixPath = path.resolve(__dirname, '../context-aware-unit-test-generation-extension-0.1.0.vsix');
+      expect(fs.existsSync(vsixPath)).toBe(true);
+      const stat = fs.statSync(vsixPath);
+      expect(stat.size).toBeGreaterThan(3 * 1024 * 1024);
+
+      await new Promise((resolve, reject) => {
+        let hasTsLib = false;
+        let hasDotenv = false;
+        yauzl.open(vsixPath, { lazyEntries: true }, (err: any, zip: any) => {
+          if (err) return reject(err);
+          zip.readEntry();
+          zip.on('entry', (entry: any) => {
+            if (entry.fileName.includes('node_modules/typescript/lib/typescript.js')) {
+              hasTsLib = true;
+            }
+            if (entry.fileName.includes('node_modules/dotenv')) {
+              hasDotenv = true;
+            }
+            zip.readEntry();
+          });
+          zip.on('end', () => {
+            try {
+              expect(hasTsLib).toBe(true);
+              expect(hasDotenv).toBe(true);
+              resolve(true);
+            } catch (assertErr) {
+              reject(assertErr);
+            }
+          });
+          zip.on('error', reject);
+        });
+      });
     });
   });
 });

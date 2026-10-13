@@ -4,7 +4,7 @@ import { PromptContext, MethodSlice } from '../prompts/types';
 import { UniversalCodeParser } from './universal_ast_parser';
 import { RequirementParser } from './requirement_parser';
 import { LanguageDetector } from './language_detector';
-import { CodeContext, ContextPayload, RequirementContext } from './types';
+import { CodeContext, ContextPayload, RequirementContext, MethodInfo } from './types';
 
 export interface ExtractOptions {
   serviceFilePath?: string;
@@ -14,6 +14,8 @@ export interface ExtractOptions {
   existingTestPatterns?: string;
   targetClassName?: string;
   targetMethodName?: string;
+  targetMethodSignature?: string;
+  targetMethodLine?: number;
 }
 
 export class ContextExtractor {
@@ -63,9 +65,8 @@ export class ContextExtractor {
         if (matchingMethods.length === 0) {
           throw new Error(`Target method "${options.targetMethodName}" was not found in class "${options.targetClassName}".`);
         }
-        // Xử lý overload: ưu tiên method có implementation body/sourceSlice
-        const withImpl = matchingMethods.filter((m) => m.sourceSlice || m.bodySnippet);
-        const found = withImpl.length > 0 ? withImpl[0] : matchingMethods[0];
+        // Xử lý overload: ưu tiên theo chữ ký cụ thể (nếu có), sau đó ưu tiên method có implementation body/sourceSlice
+        const found = this.selectBestMethod(matchingMethods, options.targetMethodSignature, options.targetMethodLine);
         const paramsStr = found.parameters.map((p) => `${p.name}: ${p.type}`).join(', ');
         targetMethodSlice = {
           className: targetCls.name,
@@ -89,8 +90,8 @@ export class ContextExtractor {
         if (matchingClasses.length === 1) {
           const cls = matchingClasses[0];
           const matchingMethods = cls.methods.filter((m) => m.name === options.targetMethodName);
-          const withImpl = matchingMethods.filter((m) => m.sourceSlice || m.bodySnippet);
-          const found = withImpl.length > 0 ? withImpl[0] : matchingMethods[0];
+          // Xử lý overload: ưu tiên theo chữ ký cụ thể (nếu có), sau đó ưu tiên method có implementation body/sourceSlice
+          const found = this.selectBestMethod(matchingMethods, options.targetMethodSignature, options.targetMethodLine);
           const paramsStr = found.parameters.map((p) => `${p.name}: ${p.type}`).join(', ');
           targetMethodSlice = {
             className: cls.name,
@@ -238,5 +239,40 @@ export class ContextExtractor {
     }
 
     return lines.join('\n');
+  }
+
+  /**
+   * Chọn method phù hợp nhất từ danh sách matching methods (xử lý overload/disambiguation)
+   */
+  private selectBestMethod(
+    methods: MethodInfo[],
+    targetSignature?: string,
+    _targetLine?: number
+  ): MethodInfo {
+    if (methods.length <= 1) return methods[0];
+
+    // 1. Nếu có chữ ký mục tiêu (targetMethodSignature), so khớp chuẩn hóa
+    if (targetSignature) {
+      const normTarget = targetSignature.replace(/\s+/g, ' ').trim().toLowerCase();
+      const sigMatch = methods.find((m) => {
+        const paramsStr = m.parameters.map((p) => `${p.name}: ${p.type}`).join(', ');
+        const fullSig = `${m.visibility ?? 'public'} ${m.name}(${paramsStr}): ${m.returnType}`.replace(/\s+/g, ' ').toLowerCase();
+        const simpleSig = `${m.name}(${paramsStr}): ${m.returnType}`.replace(/\s+/g, ' ').toLowerCase();
+        const callSig = `${m.name}(${paramsStr})`.replace(/\s+/g, ' ').toLowerCase();
+        const typesSig = `${m.name}(${m.parameters.map((p) => p.type).join(',')})`.replace(/\s+/g, ' ').toLowerCase();
+        return (
+          normTarget === fullSig ||
+          normTarget === simpleSig ||
+          normTarget === callSig ||
+          normTarget.includes(callSig) ||
+          normTarget.replace(/\s+/g, '').includes(typesSig)
+        );
+      });
+      if (sigMatch) return sigMatch;
+    }
+
+    // 2. Xử lý overload: ưu tiên method có implementation body/sourceSlice
+    const withImpl = methods.filter((m) => m.sourceSlice || m.bodySnippet);
+    return withImpl.length > 0 ? withImpl[0] : methods[0];
   }
 }

@@ -9,10 +9,10 @@
 
 ## 🌟 1. Giới Thiệu Tổng Quan
 
-**Context-Aware Unit Test Generator** là tiện ích mở rộng trên Visual Studio Code giúp các kỹ sư phần mềm và kiểm thử viên tự động hóa hoàn toàn quy trình sinh kiểm thử đơn vị (Unit Test). Khác với các công cụ sinh test truyền thống chỉ đọc code đơn thuần, Extension kết hợp **Cú pháp AST mã nguồn** và **Đặc tả yêu cầu nghiệp vụ (BA Requirements / Gherkin)** để tạo ra các bộ test case có độ bao phủ cao (Coverage > 95%) và không bỏ sót các quy tắc logic nghiệp vụ.
+**Context-Aware Unit Test Generator** là tiện ích mở rộng trên Visual Studio Code giúp các kỹ sư phần mềm và kiểm thử viên tự động hóa quy trình sinh kiểm thử đơn vị (Unit Test). Khác với các công cụ sinh test truyền thống chỉ đọc code đơn thuần, Extension kết hợp **Cú pháp AST mã nguồn** và **Đặc tả yêu cầu nghiệp vụ (BA Requirements / Gherkin)** để tạo ra các bộ test case bám sát nghiệp vụ và hạn chế tối đa việc bỏ sót các quy tắc logic.
 
 ```
-Mã Nguồn (Service) + Tài Liệu BA ➔ Extension (AST + BA Parser) ➔ LLM Pipeline ➔ Webview Preview ➔ File Test Pass 100%
+Mã Nguồn (Service) + Tài Liệu BA ➔ Extension (AST + BA Parser) ➔ LLM Pipeline ➔ Webview Preview ➔ File Test Được Lưu & Thực Thi
 ```
 
 ---
@@ -20,7 +20,7 @@ Mã Nguồn (Service) + Tài Liệu BA ➔ Extension (AST + BA Parser) ➔ LLM P
 ## 🚀 2. Hướng Dẫn Cài Đặt & Cấu Hình
 
 ### 2.1. Cài đặt Extension
-1. Tải file phân phối `context-aware-test-gen-0.1.0.vsix`.
+1. Tải file phân phối `context-aware-unit-test-generation-extension-0.1.0.vsix` (được đóng gói hoàn chỉnh kèm runtime dependencies `typescript` và `dotenv`).
 2. Trong VS Code, mở tab **Extensions** (`Ctrl+Shift+X` / `Cmd+Shift+X`).
 3. Nhấp vào menu ba chấm `...` ở góc trên bên phải ➔ Chọn **Install from VSIX...** ➔ Chọn file `.vsix`.
 
@@ -66,7 +66,7 @@ sequenceDiagram
     Dev->>UI: Tích chọn/Bỏ chọn test case & Bấm Chấp nhận
     UI->>Ext: Lưu file service.test.ts
     Ext->>Jest: Chạy đo Line & Branch Coverage
-    Jest-->>Ext: Kết quả Pass 100% (Line: 96.8%, Branch: 94.5%)
+    Jest-->>Ext: Kết quả Pass (Line: 96.8%, Branch: 94.5%)
     Ext-->>Dev: Hiển thị thông báo thành công
 ```
 

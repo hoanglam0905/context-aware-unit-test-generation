@@ -29,12 +29,16 @@ export class TestGenerationService {
     serviceUri: any,
     extensionUri: any,
     methodName: string,
-    className?: string
+    className?: string,
+    methodSignature?: string,
+    methodLine?: number
   ): Promise<PipelineResult | undefined> {
     return this.generateForFile(serviceUri, extensionUri, {
       targetSymbol: methodName,
       targetType: 'method',
       targetClassName: className,
+      targetMethodSignature: methodSignature,
+      targetMethodLine: methodLine,
     });
   }
 
@@ -44,7 +48,13 @@ export class TestGenerationService {
   public async generateForFile(
     serviceUri: any,
     extensionUri: any,
-    options?: { targetSymbol?: string; targetType?: 'file' | 'method' | 'class'; targetClassName?: string }
+    options?: {
+      targetSymbol?: string;
+      targetType?: 'file' | 'method' | 'class';
+      targetClassName?: string;
+      targetMethodSignature?: string;
+      targetMethodLine?: number;
+    }
   ): Promise<PipelineResult | undefined> {
     const startTime = Date.now();
     const serviceFilePath = serviceUri.fsPath;
@@ -122,6 +132,8 @@ export class TestGenerationService {
             runCoverage: config.autoRunCoverage,
             targetMethodName: options?.targetSymbol,
             targetClassName: options?.targetClassName,
+            targetMethodSignature: options?.targetMethodSignature,
+            targetMethodLine: options?.targetMethodLine,
             dryRun: true, // Không chạm file đích trên đĩa trước khi người dùng xác nhận
           });
         }
@@ -336,6 +348,10 @@ export class TestGenerationService {
     (refinement as any).sourceHash = fullSourceHash;
     refinement.feedbackPrompt = `### Source Code SHA-256: ${fullSourceHash}\n` + refinement.feedbackPrompt;
 
+    const summaryGeneratedAt = (summary as any).generatedAt || 'Historical Run';
+    const summaryVersion = (summary as any).version || '1.0.0';
+    const summaryServiceId = summary.serviceId || serviceFileName;
+
     // 2. Hiển thị kết quả lên Preview Panel ở chế độ CHỈ XEM (READ-ONLY)
     // Ngăn chặn hoàn toàn việc ghi đè prompt phản hồi lên file test thật
     TestPreviewPanel.createOrShow(extensionUri, {
@@ -351,6 +367,7 @@ export class TestGenerationService {
         selected: true,
       })),
       testCode: `// 🧬 MUTATION-GUIDED TEST SUGGESTIONS CHO: ${serviceFileName}\n` +
+        `// 📋 Mutation Manifest: Service=${summaryServiceId}, Generated=${summaryGeneratedAt}, Version=${summaryVersion}\n` +
         `// 🔑 Source Hash (SHA-256): ${sourceHash} (${fullSourceHash})\n` +
         `// 🎯 Mutation Score ban đầu: ${refinement.initialMutationScore.toFixed(1)}%\n` +
         `// ⚠️ Số Mutants còn sống sót (Survived): ${refinement.survivedMutantsCount}\n` +

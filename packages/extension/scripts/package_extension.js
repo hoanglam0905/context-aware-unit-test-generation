@@ -49,8 +49,7 @@ async function main() {
         // Đệ quy thêm các thư mục dependency cần thiết
         function addDir(localDir, zipPrefix) {
           if (!fs.existsSync(localDir)) {
-            console.warn(`Thư mục ${localDir} không tồn tại, bỏ qua.`);
-            return;
+            throw new Error(`[package_extension] Thư mục dependency bắt buộc không tồn tại: ${localDir}`);
           }
           const items = fs.readdirSync(localDir);
           for (const item of items) {
@@ -69,6 +68,13 @@ async function main() {
         const dotenvDir = path.join(rootDir, 'node_modules', 'dotenv');
         const tsDir = path.join(rootDir, 'node_modules', 'typescript');
 
+        if (!fs.existsSync(dotenvDir)) {
+          throw new Error(`[package_extension] Không tìm thấy thư mục dotenv bắt buộc tại: ${dotenvDir}`);
+        }
+        if (!fs.existsSync(tsDir)) {
+          throw new Error(`[package_extension] Không tìm thấy thư mục typescript bắt buộc tại: ${tsDir}`);
+        }
+
         addDir(dotenvDir, 'extension/node_modules/dotenv');
         addDir(tsDir, 'extension/node_modules/typescript');
 
@@ -85,6 +91,38 @@ async function main() {
   // 4. Thay thế file VSIX ban đầu bằng file VSIX đã đóng gói đủ dependencies
   fs.unlinkSync(vsixPath);
   fs.renameSync(tempVsixPath, vsixPath);
+
+  // 5. Xác minh tính toàn vẹn (Self-Contained Verification) của archive VSIX
+  console.log('🔍 Bước 4: Kiểm tra tính toàn vẹn các entry runtime dependencies trong file VSIX...');
+  await new Promise((resolve, reject) => {
+    let hasTs = false;
+    let hasDotenv = false;
+
+    yauzl.open(vsixPath, { lazyEntries: true }, (err, zip) => {
+      if (err) return reject(err);
+      zip.readEntry();
+      zip.on('entry', (entry) => {
+        if (entry.fileName.includes('node_modules/typescript/lib/typescript.js')) {
+          hasTs = true;
+        }
+        if (entry.fileName.includes('node_modules/dotenv/lib/main.js') || entry.fileName.includes('node_modules/dotenv/package.json')) {
+          hasDotenv = true;
+        }
+        zip.readEntry();
+      });
+      zip.on('end', () => {
+        if (!hasTs || !hasDotenv) {
+          return reject(
+            new Error(
+              `[package_extension] Xác minh thất bại: VSIX archive thiếu runtime dependencies! (hasTs=${hasTs}, hasDotenv=${hasDotenv})`
+            )
+          );
+        }
+        resolve();
+      });
+      zip.on('error', reject);
+    });
+  });
 
   const finalStats = fs.statSync(vsixPath);
   console.log(`✅ Hoàn tất đóng gói VSIX tự chủ hoàn toàn (Self-Contained Release):`);
